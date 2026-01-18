@@ -1,0 +1,14 @@
+class: LeaderboardEntry
+table: leaderboard_entry
+fields:
+  points: int
+  name: String
+  books: int
+  pages: int
+  email: String?
+  ### Reference the User class directly to create a proper relation
+  user: User?, relation
+indexes:
+  ### Corrected syntax: index_name: { fields: "column_name" }
+  leaderboard_user_id_idx:
+    fields: userId

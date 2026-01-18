@@ -1,0 +1,18 @@
+class: User
+table: user
+fields:
+  ### The [AuthUser] this profile belongs to
+  ### This creates a proper database relation
+  authUser: module:serverpod_auth_core:AuthUser?, relation(onDelete=Cascade)
+  
+  username: String?
+  bio: String?
+  createdAt: DateTime?
+  updatedAt: DateTime?
+
+
+indexes:
+  # Provide a unique name for the index (e.g., user_auth_id_idx)
+  user_auth_id_idx:
+    # Use a comma-separated string for fields
+    fields: authUserId

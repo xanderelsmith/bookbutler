@@ -1,0 +1,44 @@
+services:
+  # Development services
+  postgres:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "8090:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: project_thera
+      POSTGRES_PASSWORD: "vZzyIlgnDGJ8_WH8HwYwLTasoP3UzPiB"
+    volumes:
+      - project_thera_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:6.2.6
+    ports:
+      - "8091:6379"
+    command: redis-server --requirepass "a5jjXCP0gXbDPxzmAA_XK8-U3lYVz6eL"
+    environment:
+      - REDIS_REPLICATION_MODE=master
+
+  # Test services
+  postgres_test:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "9090:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: project_thera_test
+      POSTGRES_PASSWORD: "M0vy7F9Ng2f8A3ixfzLIMLvkCfAyCI8g"
+    volumes:
+      - project_thera_test_data:/var/lib/postgresql/data
+
+  redis_test:
+    image: redis:6.2.6
+    ports:
+      - "9091:6379"
+    command: redis-server --requirepass "YpCNxxkmkY7TjLASeq8O_zDDjPk7o1OF"
+    environment:
+      - REDIS_REPLICATION_MODE=master
+
+volumes:
+  project_thera_data:
+  project_thera_test_data:

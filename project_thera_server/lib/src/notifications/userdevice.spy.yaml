@@ -1,0 +1,35 @@
+### Device token model for storing FCM/APNs tokens
+### This stores the push notification tokens for each user's devices
+class: UserDevice
+
+table: user_device
+
+fields:
+  ### The [AuthUser] this device belongs to
+  ### This creates a proper database relation with cascade delete
+  authUser: module:serverpod_auth_core:AuthUser?, relation(onDelete=Cascade)
+  
+  ### FCM token (Android) or APNs token (iOS)
+  ### Now properly persisted in database (removed !persist)
+  deviceToken: String
+
+  ### Platform: 'android' or 'ios'
+  platform: String
+
+  ### Whether this device is still active
+  isActive: bool
+
+  ### When the token was registered
+  createdAt: DateTime?
+
+  ### When the token was last updated
+  updatedAt: DateTime?
+
+indexes:
+  # Index on authUserId (auto-generated from authUser relation)
+  user_device_auth_id_idx:
+    fields: authUserId
+  # Unique index on device token
+  user_device_token_idx:
+    fields: deviceToken
+    unique: true

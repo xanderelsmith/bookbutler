@@ -1,0 +1,25 @@
+{
+    "flutter": {
+        "platforms": {
+            "android": {
+                "default": {
+                    "projectId": "bookbutler-dfb30",
+                    "appId": "1:112764171788:android:1241ac6c5ed0f9dbf46029",
+                    "fileOutput": "android/app/google-services.json"
+                }
+            },
+            "dart": {
+                "lib/firebase_options.dart": {
+                    "projectId": "bookbutler-dfb30",
+                    "configurations": {
+                        "android": "1:112764171788:android:1241ac6c5ed0f9dbf46029",
+                        "ios": "1:112764171788:ios:2ad33343a19b347ff46029",
+                        "macos": "1:112764171788:ios:2ad33343a19b347ff46029",
+                        "web": "1:112764171788:web:830d7e2b50dc1e64f46029",
+                        "windows": "1:112764171788:web:969c083e1a40942ef46029"
+                    }
+                }
+            }
+        }
+    }
+}

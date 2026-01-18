@@ -1,0 +1,34 @@
+auth:
+  - createAccountDirectly:
+emailIdp:
+  - login:
+  - startRegistration:
+  - verifyRegistrationCode:
+  - finishRegistration:
+  - startPasswordReset:
+  - verifyPasswordResetCode:
+  - finishPasswordReset:
+jwtRefresh:
+  - refreshAccessToken:
+greeting:
+  - hello:
+leaderboardEntry:
+  - getTopEntries:
+  - getCurrentUserEntry:
+  - getUserRank:
+  - upsertEntry:
+  - getEntriesAroundUser:
+  - getEntries:
+  - streamTopEntries:
+notification:
+  - registerDeviceToken:
+  - deactivateDeviceToken:
+  - sendNotificationToUser:
+  - sendNotificationToMe:
+  - sendNotificationToMultipleUsers:
+  - sendNotificationToTopic:
+  - getMyDevices:
+  - cleanupOldDevices:
+user:
+  - getCurrentUser:
+  - updateProfile:
