@@ -278,11 +278,13 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
                 label: 'Open',
                 textColor: Colors.white,
                 onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => PdfReaderScreen(book: duplicate!),
-                    ),
-                  );
+                  if (duplicate != null) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => PdfReaderScreen(book: duplicate!),
+                      ),
+                    );
+                  }
                 },
               ),
             ),
