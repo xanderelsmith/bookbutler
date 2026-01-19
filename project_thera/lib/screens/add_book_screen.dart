@@ -9,7 +9,7 @@ import '../services/secure_cache_service.dart';
 import '../providers/book_providers.dart';
 import '../widgets/scanned_file_card.dart';
 import '../theme/app_theme.dart';
-import 'pdf_reader_screen.dart';
+import 'book_reader_screen.dart';
 import 'dart:developer';
 
 class AddBookScreen extends ConsumerStatefulWidget {
@@ -281,7 +281,8 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
                   if (duplicate != null) {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => PdfReaderScreen(book: duplicate!),
+                        builder: (context) =>
+                            BookReaderScreen(book: duplicate!),
                       ),
                     );
                   }
@@ -373,7 +374,7 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
           // Since it was successfully saved, it should have all the correct data
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (context) => PdfReaderScreen(book: book),
+              builder: (context) => BookReaderScreen(book: book),
             ),
           );
         } else {
@@ -594,14 +595,18 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
 
               // Scanned Files List
               if (_isScanning)
-                const Center(
+                Center(
                   child: Padding(
-                    padding: EdgeInsets.all(32),
+                    padding: const EdgeInsets.all(32),
                     child: Column(
                       children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 16),
-                        Text('Scanning device for book files...'),
+                        CircularProgressIndicator(
+                          color: AppTheme.purpleStart,
+                          strokeWidth: 12,
+                          backgroundColor: AppTheme.indigoEnd,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text('Scanning device for book files...'),
                       ],
                     ),
                   ),

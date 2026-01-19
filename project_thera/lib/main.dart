@@ -13,7 +13,7 @@ import 'screens/main_page.dart';
 import 'package:project_thera_client/project_thera_client.dart';
 
 ///TODO: change back to url
-var newVariable = '10.165.83.151';
+var newVariable = '172.28.113.151';
 late Client client;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

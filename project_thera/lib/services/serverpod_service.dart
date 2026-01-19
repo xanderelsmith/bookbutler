@@ -57,6 +57,31 @@ class ServerpodService {
     return prefs.getString(_serverUrlKey) ?? _defaultServerUrl;
   }
 
+  /// Attempts to restore a previous session.
+  /// Returns the UserModel if successful, null otherwise.
+  Future<UserModel?> restoreSession() async {
+    if (!_isInitialized) await initialize();
+
+    try {
+      final signedIn = await isSignedIn();
+      if (signedIn) {
+        developer.log('Session restored, fetching user profile...');
+        final user = await _ensureUserProfile();
+        final userModel = UserModel(
+          email: user.email ?? '', // Fallback or fetch from auth info if needed
+          authUserId: user.authUserId,
+          nickname: user.username,
+          bio: user.bio,
+        );
+        developer.log('Session restoration successful: $userModel');
+        return userModel;
+      }
+    } catch (e) {
+      developer.log('Failed to restore session: $e');
+    }
+    return null;
+  }
+
   /// Logs in an existing user with email / password.
   Future<UserModel?> login({
     required String email,
@@ -67,6 +92,7 @@ class ServerpodService {
     try {
       developer.log('Attempting to login with email: $email');
       var authSuccess = await _client.emailIdp.login(
+        rememberMe: true,
         email: email,
         password: password,
       );
@@ -123,6 +149,7 @@ class ServerpodService {
       // Then log in with the same credentials
       developer.log('Attempting to login after registration for email: $email');
       var authSuccess = await _client.emailIdp.login(
+        rememberMe: true,
         email: email,
         password: password,
       );

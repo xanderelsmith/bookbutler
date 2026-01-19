@@ -65,7 +65,7 @@ dependencies:
   flutter_riverpod: ^2.6.1
   pdfrx: ^2.2.24
   rive: ^0.14.1
-
+  docx_file_viewer: ^1.0.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

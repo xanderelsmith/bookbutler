@@ -32,7 +32,7 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
-PUSH_NOTIFICATIONS_IMPLEMENTATION.md
+
 # Symbolication related
 app.*.symbols
 
@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+../PUSH_NOTIFICATIONS_IMPLEMENTATION.md
+../IMPLEMENTATION_STEPS.md
+../resize_appicon.py
+../COMMANDS_REFERENCE.md
+../DEPLOYMENT.md
+../FCM_SETUP_GUIDE.md

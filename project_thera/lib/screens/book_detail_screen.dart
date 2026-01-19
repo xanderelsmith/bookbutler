@@ -3,7 +3,7 @@ import 'dart:io';
 import '../models/book.dart';
 import '../theme/app_theme.dart';
 import '../widgets/error_dialog.dart';
-import 'pdf_reader_screen.dart';
+import 'book_reader_screen.dart';
 
 class BookDetailScreen extends StatefulWidget {
   final Book book;
@@ -29,7 +29,8 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
         await ErrorDialog.show(
           context: context,
           title: 'No File Path',
-          message: 'No file path is available for this book. Please add a file to this book first.',
+          message:
+              'No file path is available for this book. Please add a file to this book first.',
           icon: Icons.file_download_outlined,
           actions: [
             DialogAction(
@@ -79,7 +80,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     if (mounted) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => PdfReaderScreen(book: _book)),
+        MaterialPageRoute(builder: (context) => BookReaderScreen(book: _book)),
       );
     }
   }

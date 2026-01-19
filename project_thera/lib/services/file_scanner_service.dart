@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'storage_access_service.dart';
@@ -112,11 +113,23 @@ class FileScannerService {
   /// Files are automatically cached during scanning for faster access
   Future<List<BookFile>> _scanDirectoryWithSAF(String directoryUri) async {
     try {
-      // Platform channel call must be on main isolate
-      final filesData = await _safService.scanDirectory(directoryUri);
+      // Capture the RootIsolateToken to allow platform channels in background isolate
+      final token = RootIsolateToken.instance;
+      if (token == null) {
+        // Fallback or error if token is null (shouldn't happen in normal Flutter app)
+        return [];
+      }
 
-      // Offload heavy list processing/mapping to background isolate
-      return await Isolate.run(() {
+      // Run the entire operation (fetch + process) in a background isolate
+      return await Isolate.run(() async {
+        // Register the background isolate with the root isolate
+        BackgroundIsolateBinaryMessenger.ensureInitialized(token);
+
+        // We need a fresh instance or access to the channel inside the isolate
+        // Since StorageAccessService uses a const MethodChannel, we can create a new instance
+        final safService = StorageAccessService();
+        final filesData = await safService.scanDirectory(directoryUri);
+
         return filesData.map((fileData) {
           return BookFile(
             path: fileData['path'] as String,
@@ -129,6 +142,7 @@ class FileScannerService {
         }).toList();
       });
     } catch (e) {
+      debugPrint('Error scanning directory with SAF: $e');
       return [];
     }
   }
@@ -138,11 +152,20 @@ class FileScannerService {
   /// Files are automatically cached during search for faster access
   Future<List<BookFile>> _searchWithMediaStore() async {
     try {
-      // Platform channel call must be on main isolate
-      final filesData = await _safService.searchBooksWithMediaStore();
+      // Capture the RootIsolateToken
+      final token = RootIsolateToken.instance;
+      if (token == null) {
+        return [];
+      }
 
-      // Offload heavy list processing/mapping to background isolate
-      return await Isolate.run(() {
+      // Run the entire operation in a background isolate
+      return await Isolate.run(() async {
+        // Register the background isolate
+        BackgroundIsolateBinaryMessenger.ensureInitialized(token);
+
+        final safService = StorageAccessService();
+        final filesData = await safService.searchBooksWithMediaStore();
+
         return filesData.map((fileData) {
           return BookFile(
             path: fileData['path'] as String,
@@ -155,6 +178,7 @@ class FileScannerService {
         }).toList();
       });
     } catch (e) {
+      debugPrint('Error searching with MediaStore: $e');
       return [];
     }
   }
