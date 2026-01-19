@@ -12,6 +12,8 @@ dependencies:
   serverpod_auth_idp_server: 3.2.0
   googleapis_auth: ^1.6.0
   http: ^1.2.0
+  dartantic_ai: ^1.1.0
+  dartantic_interface: ^1.2.0
 
 dev_dependencies:
   lints: '>=3.0.0 <7.0.0'

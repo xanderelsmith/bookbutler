@@ -9,6 +9,7 @@ fields:
   bio: String?
   createdAt: DateTime?
   updatedAt: DateTime?
+  email: String?
 
 
 indexes:

@@ -2,6 +2,7 @@ import '../generated/protocol.dart';
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_auth_idp_server/core.dart';
 import 'dart:developer' as developer;
+import '../services/fcm_service.dart';
 
 /// Endpoint for managing leaderboard entries.
 /// Access this endpoint as `client.leaderboardEntry` from the Flutter client.

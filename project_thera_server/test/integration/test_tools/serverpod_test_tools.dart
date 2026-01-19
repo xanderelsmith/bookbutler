@@ -130,6 +130,8 @@ void withServerpod(
 }
 
 class TestEndpoints {
+  late final _AiEndpoint ai;
+
   late final _AuthEndpoint auth;
 
   late final _EmailIdpEndpoint emailIdp;
@@ -152,6 +154,10 @@ class _InternalTestEndpoints extends TestEndpoints
     _i2.SerializationManager serializationManager,
     _i2.EndpointDispatch endpoints,
   ) {
+    ai = _AiEndpoint(
+      endpoints,
+      serializationManager,
+    );
     auth = _AuthEndpoint(
       endpoints,
       serializationManager,
@@ -180,6 +186,52 @@ class _InternalTestEndpoints extends TestEndpoints
       endpoints,
       serializationManager,
     );
+  }
+}
+
+class _AiEndpoint {
+  _AiEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _i2.EndpointDispatch _endpointDispatch;
+
+  final _i2.SerializationManager _serializationManager;
+
+  _i3.Future<String> askAboutPage(
+    _i1.TestSessionBuilder sessionBuilder,
+    String pageContent,
+    String userQuestion,
+  ) async {
+    return _i1.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _i1.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'ai',
+            method: 'askAboutPage',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'ai',
+          methodName: 'askAboutPage',
+          parameters: _i1.testObjectToJson({
+            'pageContent': pageContent,
+            'userQuestion': userQuestion,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _i3.Future<String>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
   }
 }
 
@@ -243,6 +295,7 @@ class _EmailIdpEndpoint {
     _i1.TestSessionBuilder sessionBuilder, {
     required String email,
     required String password,
+    required bool rememberMe,
   }) async {
     return _i1.callAwaitableFunctionAndHandleExceptions(() async {
       var _localUniqueSession =
@@ -258,6 +311,7 @@ class _EmailIdpEndpoint {
           parameters: _i1.testObjectToJson({
             'email': email,
             'password': password,
+            'rememberMe': rememberMe,
           }),
           serializationManager: _serializationManager,
         );

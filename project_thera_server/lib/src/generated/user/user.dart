@@ -25,6 +25,7 @@ abstract class User implements _i1.TableRow<int?>, _i1.ProtocolSerialization {
     this.bio,
     this.createdAt,
     this.updatedAt,
+    this.email,
   });
 
   factory User({
@@ -35,6 +36,7 @@ abstract class User implements _i1.TableRow<int?>, _i1.ProtocolSerialization {
     String? bio,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? email,
   }) = _UserImpl;
 
   factory User.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -56,6 +58,7 @@ abstract class User implements _i1.TableRow<int?>, _i1.ProtocolSerialization {
       updatedAt: jsonSerialization['updatedAt'] == null
           ? null
           : _i1.DateTimeJsonExtension.fromJson(jsonSerialization['updatedAt']),
+      email: jsonSerialization['email'] as String?,
     );
   }
 
@@ -80,6 +83,8 @@ abstract class User implements _i1.TableRow<int?>, _i1.ProtocolSerialization {
 
   DateTime? updatedAt;
 
+  String? email;
+
   @override
   _i1.Table<int?> get table => t;
 
@@ -94,6 +99,7 @@ abstract class User implements _i1.TableRow<int?>, _i1.ProtocolSerialization {
     String? bio,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? email,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -106,6 +112,7 @@ abstract class User implements _i1.TableRow<int?>, _i1.ProtocolSerialization {
       if (bio != null) 'bio': bio,
       if (createdAt != null) 'createdAt': createdAt?.toJson(),
       if (updatedAt != null) 'updatedAt': updatedAt?.toJson(),
+      if (email != null) 'email': email,
     };
   }
 
@@ -120,6 +127,7 @@ abstract class User implements _i1.TableRow<int?>, _i1.ProtocolSerialization {
       if (bio != null) 'bio': bio,
       if (createdAt != null) 'createdAt': createdAt?.toJson(),
       if (updatedAt != null) 'updatedAt': updatedAt?.toJson(),
+      if (email != null) 'email': email,
     };
   }
 
@@ -164,6 +172,7 @@ class _UserImpl extends User {
     String? bio,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? email,
   }) : super._(
          id: id,
          authUserId: authUserId,
@@ -172,6 +181,7 @@ class _UserImpl extends User {
          bio: bio,
          createdAt: createdAt,
          updatedAt: updatedAt,
+         email: email,
        );
 
   /// Returns a shallow copy of this [User]
@@ -186,6 +196,7 @@ class _UserImpl extends User {
     Object? bio = _Undefined,
     Object? createdAt = _Undefined,
     Object? updatedAt = _Undefined,
+    Object? email = _Undefined,
   }) {
     return User(
       id: id is int? ? id : this.id,
@@ -197,6 +208,7 @@ class _UserImpl extends User {
       bio: bio is String? ? bio : this.bio,
       createdAt: createdAt is DateTime? ? createdAt : this.createdAt,
       updatedAt: updatedAt is DateTime? ? updatedAt : this.updatedAt,
+      email: email is String? ? email : this.email,
     );
   }
 }
@@ -232,6 +244,11 @@ class UserUpdateTable extends _i1.UpdateTable<UserTable> {
         table.updatedAt,
         value,
       );
+
+  _i1.ColumnValue<String, String> email(String? value) => _i1.ColumnValue(
+    table.email,
+    value,
+  );
 }
 
 class UserTable extends _i1.Table<int?> {
@@ -257,6 +274,10 @@ class UserTable extends _i1.Table<int?> {
       'updatedAt',
       this,
     );
+    email = _i1.ColumnString(
+      'email',
+      this,
+    );
   }
 
   late final UserUpdateTable updateTable;
@@ -274,6 +295,8 @@ class UserTable extends _i1.Table<int?> {
   late final _i1.ColumnDateTime createdAt;
 
   late final _i1.ColumnDateTime updatedAt;
+
+  late final _i1.ColumnString email;
 
   _i2.AuthUserTable get authUser {
     if (_authUser != null) return _authUser!;
@@ -296,6 +319,7 @@ class UserTable extends _i1.Table<int?> {
     bio,
     createdAt,
     updatedAt,
+    email,
   ];
 
   @override
