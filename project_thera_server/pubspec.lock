@@ -205,10 +205,10 @@ packages:
     dependency: "direct main"
     description:
       name: dartantic_interface
-      sha256: "8ea36c60d442b81380f31614dfb557ee31cf5aabb6dc373b759a1dd8ee1c42a7"
+      sha256: "0527564d60de6800713bfee54165b054ed750fc206a6f84b000e9c52e4ce35c3"
       url: "https://pub.dev"
     source: hosted
-    version: "1.2.0"
+    version: "1.1.0"
   ed25519_edwards:
     dependency: transitive
     description:
