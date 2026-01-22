@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:docx_file_viewer/docx_file_viewer.dart';
 import 'package:pdfrx/pdfrx.dart';
+import 'package:read_pdf_text/read_pdf_text.dart';
 import '../models/book.dart';
 import '../models/reading_snippet.dart';
 import '../providers/book_providers.dart';
@@ -15,9 +16,14 @@ import '../providers/streak_provider.dart';
 import '../providers/home_widget_provider.dart';
 import '../providers/leaderboard_provider.dart';
 import '../providers/user_provider.dart';
+import '../providers/serverpod_provider.dart';
 import '../services/notification_service.dart';
+import '../services/secure_cache_service.dart';
 import '../theme/app_theme.dart';
+import '../screens/ai_chat_screen.dart';
 import '../widgets/error_dialog.dart';
+import '../widgets/reader/reader_footer.dart';
+import '../widgets/reader/reader_header.dart';
 
 class BookReaderScreen extends ConsumerStatefulWidget {
   final Book book;
@@ -30,7 +36,11 @@ class BookReaderScreen extends ConsumerStatefulWidget {
 
 class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
   // PDF specific
-  PdfViewerController? _pdfController;
+  late PdfViewerController _pdfController;
+  bool hasSentHalwaynotification = false;
+
+  // Track if we've sent the "reading started" notification for this book
+  bool hasSentReadingStartedNotification = false;
 
   // Docx specific
   late DocxSearchController _docxSearchController;
@@ -47,12 +57,11 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
 
   bool _showControls = true;
   bool _isFullscreen = false;
-  double _brightness = 1.0;
+  final double _brightness = 1.0;
   bool _isLoading = true;
   int _totalPages = 0;
   int _currentPageNumber = 1;
   int _lastTrackedPage = 0; // Track last page that triggered progress update
-  bool _controllerInitialized = false;
 
   // File type detection
   bool get _isPdf =>
@@ -63,8 +72,13 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
 
   @override
   void initState() {
+    // Initialize pdfrx controller
+    _pdfController = PdfViewerController()
+      ..addListener(() {
+        _currentPageNumber = _pdfController.pageNumber ?? 0;
+      });
     super.initState();
-    // Defer heavy operations until after first frame to prevent jank
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeBook();
     });
@@ -79,19 +93,21 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
   void _onScroll() {
     if (!_isTextBased || _textContent == null || _totalPages == 0) return;
 
-    // Calculate page based on scroll percentage
-    // This is rough approximation logic
     if (_scrollController.hasClients) {
-      final double progress =
-          _scrollController.position.pixels /
-          _scrollController.position.maxScrollExtent;
-      final int newPage = (progress * _totalPages).ceil().clamp(1, _totalPages);
+      final double maxScroll = _scrollController.position.maxScrollExtent;
+      if (maxScroll <= 0) return;
 
-      if (newPage != _currentPageNumber) {
+      final double progress = _scrollController.position.pixels / maxScroll;
+      // Map 0.0-1.0 to 1-totalPages
+      final int newPage = (progress * (_totalPages - 1)).round() + 1;
+      final int clampedPage = newPage.clamp(1, _totalPages);
+
+      if (clampedPage != _currentPageNumber) {
         setState(() {
-          _currentPageNumber = newPage;
+          _currentPageNumber = clampedPage;
         });
-        _updateBookProgress(newPage);
+        // Consider throttling this update
+        _updateBookProgress(clampedPage);
       }
     }
   }
@@ -157,37 +173,33 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
   }
 
   Future<void> _initializePdf(String filePath) async {
-    // Initialize pdfrx controller
-    _pdfController = PdfViewerController();
-    _controllerInitialized = true;
-
     _commonInitialization();
-
-    // Wait for PDF to load, then get page count and jump to saved page
-    // ... (Rest of PDF loading logic kept almost same, simplified for brevity)
-    // We'll rely on pdfrx onViewerReady or similar if possible, but keeping existing delay logic for minimal regression
 
     setState(() {
       _isLoading = false;
     });
 
     Future.delayed(const Duration(milliseconds: 500), () async {
-      if (!mounted || _pdfController == null) return;
+      if (!mounted) return;
       try {
         // ... (existing poll logic)
         int attempts = 0;
         while (attempts < 10 && mounted) {
-          final pageCount = _pdfController?.pageCount;
-          if (pageCount != null && pageCount > 0) {
+          final pageCount = _pdfController.pageCount;
+          if (pageCount > 0) {
             _handleTotalPagesUpdated(pageCount);
 
             // Jump to page
             if (_currentPageNumber > 1 && _currentPageNumber <= _totalPages) {
               await Future.delayed(const Duration(milliseconds: 200));
-              if (mounted && _pdfController != null) {
-                await _pdfController!.goToPage(
-                  pageNumber: _currentPageNumber - 1,
-                );
+              if (mounted) {
+                try {
+                  await _pdfController.goToPage(
+                    pageNumber: _currentPageNumber - 1,
+                  );
+                } catch (e) {
+                  log('Error restoring PDF page: $e');
+                }
               }
             }
             break;
@@ -255,7 +267,51 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
       await _notificationService.sendFirstDocumentOpenedNotification(
         widget.book.title,
       );
+
+      // Send "reading started" notification to all users (once per book)
+      await _sendReadingStartedNotification();
+
+      // Ensure status is updated to reading if it was wantToRead
+      if (widget.book.status == BookStatus.wantToRead) {
+        await _updateBookProgress(_currentPageNumber);
+      }
     });
+  }
+
+  /// Send reading started notification to all users (once per book)
+  Future<void> _sendReadingStartedNotification() async {
+    try {
+      // Check if we've already sent notification for this book
+      final cacheKey = 'reading_started_${widget.book.id}';
+      final cacheService = SecureCacheService();
+      final alreadySent = await cacheService.getCachedBookMetadata(cacheKey);
+
+      if (alreadySent != null || hasSentReadingStartedNotification) {
+        return; // Already sent, don't spam
+      }
+
+      // Get serverpod client and call endpoint
+      final client = ref.read(serverpodServiceProvider).client;
+      try {
+        await client.notification.sendReadingStartedNotification(
+          widget.book.title,
+        );
+
+        // Mark as sent
+        hasSentReadingStartedNotification = true;
+        await cacheService.cacheBookMetadata(cacheKey, {
+          'sent': true,
+          'sentAt': DateTime.now().toIso8601String(),
+        });
+
+        log('📚 Reading started notification sent for: ${widget.book.title}');
+      } catch (e) {
+        log('Error sending reading started notification: $e');
+        // Fail silently, non-critical feature
+      }
+    } catch (e) {
+      log('Error in _sendReadingStartedNotification: $e');
+    }
   }
 
   void _handleTotalPagesUpdated(int pageCount) {
@@ -330,10 +386,26 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
     final progress = ((page / totalPages) * 100).round();
     final previousProgress = widget.book.progress;
 
+    // Auto-update status
+    BookStatus newStatus = widget.book.status;
+    String? dateStarted = widget.book.dateStarted;
+    String? dateCompleted = widget.book.dateCompleted;
+
+    if (progress >= 100) {
+      newStatus = BookStatus.completed;
+      dateCompleted ??= DateTime.now().toIso8601String();
+    } else if (widget.book.status == BookStatus.wantToRead) {
+      newStatus = BookStatus.reading;
+      dateStarted ??= DateTime.now().toIso8601String();
+    }
+
     final updatedBook = widget.book.copyWith(
       currentPage: page,
       progress: progress,
       totalPages: totalPages,
+      status: newStatus,
+      dateStarted: dateStarted,
+      dateCompleted: dateCompleted,
     );
 
     await ref.read(booksProvider.notifier).updateBook(updatedBook);
@@ -374,9 +446,12 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
         widget.book.title,
       );
     } else if (progress >= 50 && previousProgress < 50) {
-      await _notificationService.sendHalfwayMilestoneNotification(
-        widget.book.title,
-      );
+      if (hasSentHalwaynotification == false) {
+        await _notificationService.sendHalfwayMilestoneNotification(
+          widget.book.title,
+        );
+      }
+      hasSentHalwaynotification = true;
     }
   }
 
@@ -483,13 +558,10 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
     }
   }
 
-  Future<void> _handlePrevPage() async {
+  Future<void> _handlePrevPage(int val) async {
     if (_isLoading) return;
     if (_isPdf) {
-      // ... existing PDF prev page
-      if (_pdfController != null && _currentPageNumber > 1) {
-        await _pdfController!.goToPage(pageNumber: _currentPageNumber - 2);
-      }
+      await _pdfController.goToPage(pageNumber: val);
     } else {
       // Text/Docx prev page approx (scroll up one 'page')
       if (_scrollController.hasClients) {
@@ -505,13 +577,18 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
     }
   }
 
-  Future<void> _handleNextPage() async {
+  Future<void> _handleNextPage(int val) async {
+    log(_isPdf.toString());
     if (_isLoading) return;
     if (_isPdf) {
       // ... existing PDF next page
-      if (_pdfController != null && _currentPageNumber < _totalPages) {
-        await _pdfController!.goToPage(pageNumber: _currentPageNumber);
-      }
+      // if (_currentPageNumber < _totalPages) {
+      // try {
+      _pdfController.goToPage(pageNumber: val);
+      // } catch (e) {
+      //   log('Error going to next PDF page: $e');
+      // }
+      // }
     } else {
       // Text/Docx next page approx
       if (_scrollController.hasClients && _currentPageNumber < _totalPages) {
@@ -533,25 +610,12 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
     });
   }
 
-  void _toggleFullscreen() {
-    setState(() {
-      _isFullscreen = !_isFullscreen;
-      _showControls = !_isFullscreen;
-    });
-
-    if (_isFullscreen) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    } else {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    }
-  }
-
   @override
   void dispose() {
     // Restore system UI on exit
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
-    _pdfController = null;
+    // _pdfController.;
     _docxSearchController.removeListener(_onSearchChanged);
     _docxSearchController.dispose();
     _searchTextController.dispose();
@@ -563,7 +627,6 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
     if (mounted) setState(() {});
   }
 
-  int get _currentPage => _currentPageNumber;
   int get _progress =>
       _totalPages > 0 ? ((_currentPageNumber / _totalPages) * 100).round() : 0;
 
@@ -573,48 +636,268 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
       backgroundColor: Colors.white,
       body: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        color: Color.lerp(Colors.white, Colors.black, 1.0 - _brightness),
-        child: Stack(
-          children: [
-            // Viewer Area
-            GestureDetector(
-              onTap: _toggleControls,
-              child: Container(
-                width: double.infinity,
-                height: double.infinity,
-                color: _isPdf
-                    ? Colors.grey[50]
-                    : Colors.white, // White background for text
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _buildContentView(),
+        color: Color.lerp(
+          Colors.white,
+          const Color.fromRGBO(0, 0, 0, 1),
+          1.0 - _brightness,
+        ),
+        child: SizedBox(
+          width: double.infinity,
+          height: double.infinity,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_showControls)
+                ReaderHeader(
+                  book: widget.book,
+                  currentPage: _currentPageNumber,
+                  totalPages: _totalPages,
+                  progress: _progress,
+                  isDocx: _isDocx,
+                  isSearchActive: _isSearchActive,
+                  isFullscreen: _isFullscreen,
+                  searchTextController: _searchTextController,
+                  docxSearchController: _docxSearchController,
+                  onClose: () => Navigator.pop(context),
+                  onSaveSnippet: _showSaveSnippetDialog,
+                  onToggleSearch: () {
+                    setState(() {
+                      _isSearchActive = !_isSearchActive;
+                      if (!_isSearchActive) {
+                        _docxSearchController.clear();
+                        _searchTextController.clear();
+                      }
+                    });
+                  },
+                  onAskAi: _showAiDialog,
+                  onSettings: () {},
+                ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    log('Tapped');
+                    _toggleControls();
+                  },
+                  behavior: HitTestBehavior
+                      .translucent, // ensure taps are caught even on empty space
+                  child: Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    color: _isPdf
+                        ? Colors.grey[50]
+                        : Colors.white, // White background for text
+                    child: _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _buildContentView(),
+                  ),
+                ),
               ),
-            ),
 
-            // Top Controls (Header)
-            if (_showControls)
-              Positioned(top: 0, left: 0, right: 0, child: _buildHeader()),
+              if (_showControls)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: ReaderFooter(
+                    currentPage: _currentPageNumber,
+                    totalPages: _totalPages,
+                    isLoading: _isLoading,
+                    onPrevPage: _handlePrevPage,
+                    onNextPage: _handleNextPage,
+                    onPageChanged: (val) {
+                      log('_currentPageNumber: $val');
+                      setState(() {
+                        _currentPageNumber = val;
+                      });
+                    },
+                    onSeekPage: (page) {
+                      if (_isPdf) {
+                        try {
+                          _pdfController.goToPage(pageNumber: page - 1);
+                        } catch (e) {
+                          log('Error seeking PDF page: $e');
+                        }
+                      } else if (_isTextBased) {
+                        if (_scrollController.hasClients) {
+                          final double max =
+                              _scrollController.position.maxScrollExtent;
+                          final double target =
+                              ((page - 1) / (_totalPages - 1)) * max;
+                          _scrollController.jumpTo(target);
+                        }
+                      } else if (_isDocx) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Seeking not fully supported for this format',
+                            ),
+                          ),
+                        );
+                      }
+                      _updateBookProgress(page);
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-            // Bottom Controls
-            if (_showControls)
-              Positioned(bottom: 0, left: 0, right: 0, child: _buildFooter()),
-          ],
+  void _onSelectionAiAction(
+    dynamic selectedTextSource,
+    String? initialQuestion,
+  ) async {
+    String selectedText = '';
+    if (selectedTextSource is Future<String>) {
+      selectedText = await selectedTextSource;
+    } else if (selectedTextSource is String) {
+      selectedText = selectedTextSource;
+    }
+
+    if (!mounted || selectedText.isEmpty) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AiChatScreen(
+          extractedText: selectedText,
+          bookTitle: widget.book.title,
+          pageInfo: 'Selected Text',
+          initialQuestion: initialQuestion,
+          isHighlightedText: true,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showAiDialog() async {
+    String extractedText = '';
+    if (_isPdf) {
+      if (_currentPageNumber > 0) {
+        // Use new optimized method
+        extractedText = await ReadPdfText.getPDFtextForPage(
+          widget.book.pdfUrl ?? '',
+          _currentPageNumber,
+        );
+      }
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AiChatScreen(
+          extractedText: extractedText,
+          bookTitle: widget.book.title,
+          pageInfo:
+              'Page $_currentPageNumber${_totalPages != null ? ' of $_totalPages' : ''}',
+          // Enable range slider for PDFs
+          bookFilePath: _isPdf ? widget.book.pdfUrl : null,
+          currentPage: _currentPageNumber,
+          totalPages: _totalPages,
         ),
       ),
     );
   }
 
   Widget _buildContentView() {
-    if (_isPdf && _pdfController != null) {
+    if (_isPdf) {
       return PdfViewer.file(
         widget.book.pdfUrl ?? '',
         controller: _pdfController!,
+        params: PdfViewerParams(
+          onPageChanged: (page) {
+            if (page != null && page != _currentPageNumber) {
+              if (mounted) {
+                setState(() {
+                  _currentPageNumber = page;
+                });
+                _updateBookProgress(page);
+              }
+            }
+          },
+          customizeContextMenuItems: (params, items) {
+            items.addAll([
+              ContextMenuButtonItem(
+                label: 'Summarize',
+                onPressed: () {
+                  params.dismissContextMenu();
+                  _onSelectionAiAction(
+                    params.textSelectionDelegate.hasSelectedText
+                        ? params.textSelectionDelegate.getSelectedText().then(
+                            (value) => value,
+                          )
+                        : Future.value(''),
+                    'Summarize this',
+                  );
+                },
+              ),
+              ContextMenuButtonItem(
+                label: 'Explain',
+                onPressed: () {
+                  params.dismissContextMenu();
+                  _onSelectionAiAction(
+                    params.textSelectionDelegate.getSelectedText().then(
+                      (value) => value,
+                    ),
+                    'Explain this',
+                  );
+                },
+              ),
+              ContextMenuButtonItem(
+                label: 'Ask AI',
+                onPressed: () {
+                  params.dismissContextMenu();
+                  _onSelectionAiAction(
+                    params.textSelectionDelegate.getSelectedText().then(
+                      (value) => value,
+                    ),
+                    null,
+                  );
+                },
+              ),
+            ]);
+          },
+        ),
       );
     } else if (_isDocx) {
-      return DocxView(
-        path: widget.book.pdfUrl ?? '',
-        config: DocxViewConfig(enableSearch: true, enableZoom: true),
-        searchController: _docxSearchController,
+      return NotificationListener<ScrollNotification>(
+        onNotification: (scrollNotification) {
+          if (scrollNotification.metrics.maxScrollExtent > 0) {
+            // Estimate pages for Docx
+            // DocxViewer doesn't give us pages, so we estimate based on scroll similar to Text
+            if (_totalPages == 0) {
+              // Initial estimation if not set
+              // 1000px per page approx?
+              final estimated =
+                  (scrollNotification.metrics.maxScrollExtent / 800).ceil();
+              _handleTotalPagesUpdated(estimated > 0 ? estimated : 1);
+            }
+
+            final double progress =
+                scrollNotification.metrics.pixels /
+                scrollNotification.metrics.maxScrollExtent;
+            final int newPage = (progress * _totalPages).ceil().clamp(
+              1,
+              _totalPages,
+            );
+
+            if (newPage != _currentPageNumber) {
+              // Avoid too many setState calls
+              if (mounted) {
+                setState(() {
+                  _currentPageNumber = newPage;
+                });
+                // Debounce progress update?
+                _updateBookProgress(newPage);
+              }
+            }
+          }
+          return false;
+        },
+        child: DocxView(
+          path: widget.book.pdfUrl ?? '',
+          config: DocxViewConfig(enableSearch: true, enableZoom: true),
+          searchController: _docxSearchController,
+        ),
       );
     } else if (_isTextBased && _textContent != null) {
       return SingleChildScrollView(
@@ -625,205 +908,59 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
           20,
           _showControls ? 100 : 60,
         ),
-        child: Text(
+        child: SelectableText(
           _textContent!,
           style: const TextStyle(
             fontSize: 16,
             height: 1.5,
             color: Colors.black87,
           ),
+          contextMenuBuilder: (context, editableTextState) {
+            final List<ContextMenuButtonItem> buttonItems =
+                editableTextState.contextMenuButtonItems;
+            buttonItems.addAll([
+              ContextMenuButtonItem(
+                label: 'Summarize',
+                onPressed: () {
+                  editableTextState.hideToolbar();
+                  final String selectedText = _textContent!.substring(
+                    editableTextState.textEditingValue.selection.start,
+                    editableTextState.textEditingValue.selection.end,
+                  );
+                  _onSelectionAiAction(selectedText, 'Summarize this');
+                },
+              ),
+              ContextMenuButtonItem(
+                label: 'Explain',
+                onPressed: () {
+                  editableTextState.hideToolbar();
+                  final String selectedText = _textContent!.substring(
+                    editableTextState.textEditingValue.selection.start,
+                    editableTextState.textEditingValue.selection.end,
+                  );
+                  _onSelectionAiAction(selectedText, 'Explain this');
+                },
+              ),
+              ContextMenuButtonItem(
+                label: 'Ask AI',
+                onPressed: () {
+                  editableTextState.hideToolbar();
+                  final String selectedText = _textContent!.substring(
+                    editableTextState.textEditingValue.selection.start,
+                    editableTextState.textEditingValue.selection.end,
+                  );
+                  _onSelectionAiAction(selectedText, null);
+                },
+              ),
+            ]);
+            return AdaptiveTextSelectionToolbar.buttonItems(
+              anchors: editableTextState.contextMenuAnchors,
+              buttonItems: buttonItems,
+            );
+          },
         ),
       );
     }
     return const Text('Failed to load content');
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 1)),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.bookmark_border),
-                        onPressed: _showSaveSnippetDialog,
-                      ),
-                      if (_isDocx)
-                        IconButton(
-                          icon: const Icon(Icons.search),
-                          onPressed: () {
-                            setState(() {
-                              _isSearchActive = !_isSearchActive;
-                              if (!_isSearchActive) {
-                                _docxSearchController.clear();
-                                _searchTextController.clear();
-                              }
-                            });
-                          },
-                        ),
-                      IconButton(
-                        icon: const Icon(Icons.settings_outlined),
-                        onPressed: () {},
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          _isFullscreen
-                              ? Icons.fullscreen_exit
-                              : Icons.fullscreen,
-                        ),
-                        onPressed: _toggleFullscreen,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              // Book Title (or Search Bar)
-              if (_isSearchActive && _isDocx)
-                _buildSearchBar()
-              else ...[
-                Text(
-                  widget.book.title,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  widget.book.author,
-                  style: const TextStyle(color: Colors.grey),
-                ),
-              ],
-              const SizedBox(height: 12),
-              LinearProgressIndicator(
-                value: _progress / 100,
-                minHeight: 2,
-                backgroundColor: Colors.grey[200],
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  AppTheme.primary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Page $_currentPage of $_totalPages'),
-                  Text('$_progress%'),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: _searchTextController,
-            autofocus: true,
-            decoration: const InputDecoration(
-              hintText: 'Search text...',
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(horizontal: 8),
-            ),
-            onSubmitted: (value) => _docxSearchController.search(value),
-            onChanged: (value) => _docxSearchController.search(value),
-            textInputAction: TextInputAction.search,
-          ),
-        ),
-        if (_docxSearchController.matchCount > 0)
-          Text(
-            '${_docxSearchController.currentMatchIndex + 1}/${_docxSearchController.matchCount}',
-            style: const TextStyle(fontSize: 14),
-          ),
-        IconButton(
-          icon: const Icon(Icons.expand_less),
-          onPressed: _docxSearchController.previousMatch,
-          tooltip: 'Previous',
-        ),
-        IconButton(
-          icon: const Icon(Icons.expand_more),
-          onPressed: _docxSearchController.nextMatch,
-          tooltip: 'Next',
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFooter() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey[200]!, width: 1)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                onPressed: (!_isLoading && _currentPage > 1)
-                    ? _handlePrevPage
-                    : null,
-              ),
-              Expanded(
-                child: _totalPages > 0
-                    ? Slider(
-                        value: _currentPageNumber
-                            .clamp(1, _totalPages)
-                            .toDouble(),
-                        min: 1,
-                        max: _totalPages.toDouble(),
-                        divisions: _totalPages > 1 ? _totalPages - 1 : 1,
-                        onChanged: (val) {
-                          final page = val.round();
-                          if (_isPdf) {
-                            _pdfController?.goToPage(pageNumber: page - 1);
-                          } else {
-                            // Text seeking
-                            if (_scrollController.hasClients) {
-                              final double max =
-                                  _scrollController.position.maxScrollExtent;
-                              final double target = (page / _totalPages) * max;
-                              _scrollController.jumpTo(target);
-                            }
-                            setState(() {
-                              _currentPageNumber = page;
-                            });
-                          }
-                        },
-                      )
-                    : const SizedBox(),
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                onPressed: (!_isLoading && _currentPage < _totalPages)
-                    ? _handleNextPage
-                    : null,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }

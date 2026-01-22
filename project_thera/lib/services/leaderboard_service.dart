@@ -71,13 +71,16 @@ class LeaderboardService {
   }) async {
     await _serverpodService.initialize();
     try {
-      return await _serverpodService.client.leaderboardEntry.upsertEntry(
-        points: points,
-        name: name,
-        books: books,
-        pages: pages,
-        email: email,
-      );
+      var notification = await _serverpodService.client.leaderboardEntry
+          .upsertEntry(
+            points: points,
+            name: name,
+            books: books,
+            pages: pages,
+            email: email,
+          );
+
+      return notification;
     } catch (e) {
       developer.log('Error upserting leaderboard entry: $e');
       rethrow;

@@ -7,7 +7,6 @@ import 'leaderboard_screen.dart';
 import 'settings_screen.dart';
 import 'add_book_screen.dart';
 
-import '../providers/serverpod_provider.dart';
 import '../providers/user_provider.dart';
 
 class MainNavigationScreen extends ConsumerStatefulWidget {
@@ -31,24 +30,12 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   @override
   void initState() {
     super.initState();
-    _restoreSession();
-  }
-
-  Future<void> _restoreSession() async {
-    // Small delay to ensure providers are ready
-    await Future.delayed(Duration.zero);
-
-    final serverpodService = ref.read(serverpodServiceProvider);
-    final userNotifier = ref.read(userProvider.notifier);
-
-    final user = await serverpodService.restoreSession();
-    if (user != null) {
-      userNotifier.setUser(user);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Watch the bootstrap provider to ensure user session is restored
+    ref.watch(userBootstrapProvider);
     final riveAsync = ref.watch(riveProvider);
 
     return Scaffold(

@@ -490,7 +490,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               iconColor: Colors.blue,
               iconBg: Colors.blue.withOpacity(0.1),
               label: 'Currently Reading',
-              value: '$booksReading',
+              value: '${booksReading.length}',
             ),
             _buildStatCard(
               icon: Icons.check_circle_outline,

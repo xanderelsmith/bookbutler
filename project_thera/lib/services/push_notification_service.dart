@@ -13,7 +13,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 class PushNotificationService {
-  static final PushNotificationService _instance = PushNotificationService._internal();
+  static final PushNotificationService _instance =
+      PushNotificationService._internal();
   factory PushNotificationService() => _instance;
   PushNotificationService._internal();
 
@@ -25,7 +26,7 @@ class PushNotificationService {
   /// Initialize push notification service
   Future<void> initialize() async {
     if (_isInitialized) return;
-    
+
     try {
       // Request permission
       NotificationSettings settings = await _messaging.requestPermission(
@@ -40,7 +41,8 @@ class PushNotificationService {
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
         print('User granted notification permission');
-      } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
+      } else if (settings.authorizationStatus ==
+          AuthorizationStatus.provisional) {
         print('User granted provisional notification permission');
       } else {
         print('User declined or has not accepted notification permission');
@@ -50,14 +52,16 @@ class PushNotificationService {
       FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
       // Handle background messages
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      FirebaseMessaging.onBackgroundMessage(
+        _firebaseMessagingBackgroundHandler,
+      );
 
       // Handle notification taps when app is opened from background
       FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
 
       // Check if app was opened from a terminated state via notification
       RemoteMessage? initialMessage = await _messaging.getInitialMessage();
-  if (initialMessage != null) {
+      if (initialMessage != null) {
         _handleMessageOpenedApp(initialMessage);
       }
 
@@ -66,6 +70,9 @@ class PushNotificationService {
 
       // Listen for token refresh
       _messaging.onTokenRefresh.listen(_onTokenRefresh);
+
+      // Subscribe to all_users topic
+      await subscribeToTopic('all_users');
 
       _isInitialized = true;
       print('PushNotificationService initialized successfully');
@@ -91,7 +98,7 @@ class PushNotificationService {
       _currentToken = await _messaging.getToken();
       if (_currentToken != null) {
         print('FCM Token: $_currentToken');
-        await _sendTokenToServer(_currentToken!);
+        await sendTokenToServer(_currentToken!);
       }
     } catch (e) {
       print('Error getting FCM token: $e');
@@ -102,18 +109,18 @@ class PushNotificationService {
   void _onTokenRefresh(String token) {
     print('FCM Token refreshed: $token');
     _currentToken = token;
-    _sendTokenToServer(token);
+    sendTokenToServer(token);
   }
 
   /// Send token to server for storing
-  Future<void> _sendTokenToServer(String token) async {
+  Future<void> sendTokenToServer(String token) async {
     try {
       // Get the platform
       final platform = Platform.isAndroid ? 'android' : 'ios';
-      
+
       // Send token to Serverpod server
       await client.notification.registerDeviceToken(token, platform);
-      
+
       print('Successfully sent token to server: $token (platform: $platform)');
     } catch (e) {
       print('Error sending token to server: $e');
@@ -155,10 +162,14 @@ class PushNotificationService {
     try {
       // Use a unique ID based on current time
       final id = DateTime.now().millisecondsSinceEpoch.remainder(100000);
-      
+
       // Access the private method through the notification service
       // For now, we'll create a simple notification
-      await _notificationService.sendBookCompletedNotification(body);
+      await _notificationService.sendFcmNotification(
+        title: title,
+        body: body,
+        data: data,
+      );
     } catch (e) {
       print('Error showing local notification: $e');
     }

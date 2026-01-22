@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/reading_activity_providers.dart';
 import '../providers/snippet_providers.dart';
 import '../providers/leaderboard_provider.dart';
+import '../providers/streak_provider.dart';
+import '../providers/book_providers.dart';
 import '../models/reading_snippet.dart';
 
 class LeaderboardScreen extends ConsumerStatefulWidget {
@@ -259,10 +261,16 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
 
   Widget _buildYourStatsCard() {
     final userEntryAsync = ref.watch(currentUserLeaderboardProvider);
-    final userRankAsync = ref.watch(currentUserRankProvider);
+    final currentStreakAsync = ref.watch(currentStreakProvider);
+    final longestStreakAsync = ref.watch(longestStreakProvider);
+    final activitiesAsync = ref.watch(readingActivitiesProvider);
+    final completedBooks = ref.watch(completedBooksProvider);
 
-    // Combine both async values
-    if (userEntryAsync.isLoading || userRankAsync.isLoading) {
+    // Check if any data is loading
+    if (userEntryAsync.isLoading ||
+        currentStreakAsync.isLoading ||
+        longestStreakAsync.isLoading ||
+        activitiesAsync.isLoading) {
       return const Card(
         child: Padding(
           padding: EdgeInsets.all(32.0),
@@ -271,7 +279,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
       );
     }
 
-    if (userEntryAsync.hasError || userRankAsync.hasError) {
+    // Check for errors
+    if (userEntryAsync.hasError) {
       return Card(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -288,8 +297,17 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
     }
 
     final entry = userEntryAsync.value;
-    final rank = userRankAsync.value;
     final hasEntry = entry != null;
+    final currentStreak = currentStreakAsync.value ?? 0;
+    final longestStreak = longestStreakAsync.value ?? 0;
+    final completedBooksCount = completedBooks.length;
+
+    // Calculate total pages from activities
+    final activities = activitiesAsync.value ?? [];
+    final totalPagesFromActivities = activities.fold<int>(
+      0,
+      (sum, activity) => sum + activity.pagesRead,
+    );
 
     return Card(
       child: Column(
@@ -298,18 +316,17 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
             leading: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.amber.withOpacity(0.1),
+                color: Colors.deepOrange.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.emoji_events, color: Colors.amber),
+              child: const Icon(Icons.whatshot, color: Colors.deepOrange),
             ),
-            title: const Text('Your Rank'),
+            title: const Text('Current Streak'),
             subtitle: Text(
-              hasEntry && rank != null && rank > 0
-                  ? 'You are ranked #$rank'
-                  : 'No rank yet - start reading!',
+              currentStreak > 0
+                  ? '$currentStreak ${currentStreak == 1 ? 'day' : 'days'}'
+                  : 'Start your streak today!',
             ),
-            trailing: const Icon(Icons.chevron_right),
           ),
           const Divider(height: 1),
           ListTile(
@@ -322,8 +339,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
               child: const Icon(Icons.library_books, color: Colors.blue),
             ),
             title: const Text('Books Completed'),
-            subtitle: Text(hasEntry ? '${entry!.books} books' : '0 books'),
-            trailing: const Icon(Icons.chevron_right),
+            subtitle: Text(
+              '$completedBooksCount ${completedBooksCount == 1 ? 'book' : 'books'}',
+            ),
           ),
           const Divider(height: 1),
           ListTile(
@@ -339,8 +357,31 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
               ),
             ),
             title: const Text('Pages Read'),
-            subtitle: Text(hasEntry ? '${entry!.pages} pages' : '0 pages'),
-            trailing: const Icon(Icons.chevron_right),
+            subtitle: Text(
+              totalPagesFromActivities > 0
+                  ? '$totalPagesFromActivities pages'
+                  : hasEntry
+                  ? '${entry!.pages} pages'
+                  : '0 pages',
+            ),
+          ),
+          const Divider(height: 1),
+
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.purple.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.military_tech, color: Colors.purple),
+            ),
+            title: const Text('Longest Streak'),
+            subtitle: Text(
+              longestStreak > 0
+                  ? '$longestStreak ${longestStreak == 1 ? 'day' : 'days'}'
+                  : 'No streak record yet',
+            ),
           ),
           if (hasEntry) ...[
             const Divider(height: 1),
@@ -355,7 +396,6 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
               ),
               title: const Text('Points'),
               subtitle: Text('${entry!.points} points'),
-              trailing: const Icon(Icons.chevron_right),
             ),
           ],
         ],
@@ -376,11 +416,13 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
             ],
           ),
           SizedBox(
-            height:
-                MediaQuery.of(context).size.height * 0.6, // Responsive height
-            child: TabBarView(
-              controller: _tabController,
-              children: [_buildActivityHeatmapView(), _buildSnippetsView()],
+            height: 600, // Responsive height
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: TabBarView(
+                controller: _tabController,
+                children: [_buildActivityHeatmapView(), _buildSnippetsView()],
+              ),
             ),
           ),
         ],
@@ -406,53 +448,50 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
         final month = DateTime(now.year, now.month - monthsFromNow, 1);
         final monthActivities = ref.watch(monthlyActivitiesProvider(month));
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Month navigation
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.chevron_left),
-                    onPressed: () {
-                      _monthPageController.previousPage(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    },
-                  ),
-                  Text(
-                    '${_getMonthName(month.month)} ${month.year}',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right),
-                    onPressed: index < 12
-                        ? () {
-                            _monthPageController.nextPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        : null,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Month navigation
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left),
+                  onPressed: () {
+                    _monthPageController.previousPage(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                ),
+                Text(
+                  '${_getMonthName(month.month)} ${month.year}',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right),
+                  onPressed: index < 12
+                      ? () {
+                          _monthPageController.nextPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        }
+                      : null,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
 
-              // Heatmap (removed nested Card)
-              _buildActivityHeatmap(monthActivities),
-              const SizedBox(height: 16),
+            // Heatmap (removed nested Card)
+            _buildActivityHeatmap(monthActivities),
+            const SizedBox(height: 16),
 
-              // Stats (removed nested Card)
-              _buildMonthlyStats(monthActivities),
-            ],
-          ),
+            // Stats (removed nested Card)
+            _buildMonthlyStats(monthActivities),
+          ],
         );
       },
       itemCount: 13, // Last 12 months + current month

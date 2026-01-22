@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:project_thera/screens/notes_list_screen.dart';
 import 'dart:io';
 import '../models/book.dart';
 import '../theme/app_theme.dart';
@@ -212,10 +213,18 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: () {
-                  // TODO: Start reading session
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => NotesListScreen(
+                        bookId: _book.id,
+                        bookTitle: _book.title,
+                      ),
+                    ),
+                  );
                 },
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('Start Reading Session'),
+                icon: const Icon(Icons.notes),
+                label: const Text('Saved Notes'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),

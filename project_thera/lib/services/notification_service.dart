@@ -1,5 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 import 'dart:io';
 import 'secure_cache_service.dart';
 
@@ -8,9 +11,10 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _notifications =
+      FlutterLocalNotificationsPlugin();
   final SecureCacheService _cacheService = SecureCacheService();
-  
+
   static const String _firstDocumentOpenedKey = 'first_document_opened';
 
   // Initialize notification service
@@ -34,11 +38,12 @@ class NotificationService {
         AndroidInitializationSettings('@drawable/ic_notification');
 
     // iOS initialization settings
-    const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
+    const DarwinInitializationSettings iosSettings =
+        DarwinInitializationSettings(
+          requestAlertPermission: true,
+          requestBadgePermission: true,
+          requestSoundPermission: true,
+        );
 
     // Initialization settings for both platforms
     const InitializationSettings initSettings = InitializationSettings(
@@ -71,7 +76,8 @@ class NotificationService {
 
     await _notifications
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(channel);
   }
 
@@ -85,7 +91,7 @@ class NotificationService {
     try {
       // Check if this is the first launch
       final isFirstLaunch = await _cacheService.isFirstLaunch();
-      
+
       if (!isFirstLaunch) {
         // Not first launch, don't send notification
         return;
@@ -105,18 +111,19 @@ class NotificationService {
       }
 
       // Android notification details
-      const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-        'book_notifications',
-        'Book Notifications',
-        channelDescription: 'Notifications for book reading activities',
-        importance: Importance.high,
-        priority: Priority.high,
-        showWhen: true,
-        enableVibration: true,
-        playSound: true,
-        icon: '@drawable/ic_notification',
-        styleInformation: BigTextStyleInformation(''),
-      );
+      const AndroidNotificationDetails androidDetails =
+          AndroidNotificationDetails(
+            'book_notifications',
+            'Book Notifications',
+            channelDescription: 'Notifications for book reading activities',
+            importance: Importance.high,
+            priority: Priority.high,
+            showWhen: true,
+            enableVibration: true,
+            playSound: true,
+            icon: '@drawable/ic_notification',
+            styleInformation: BigTextStyleInformation(''),
+          );
 
       // iOS notification details
       const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
@@ -150,8 +157,10 @@ class NotificationService {
   Future<void> sendFirstDocumentOpenedNotification(String bookTitle) async {
     try {
       // Check if first document notification was already sent
-      final firstDocumentOpened = await _cacheService.getCachedBookMetadata(_firstDocumentOpenedKey);
-      
+      final firstDocumentOpened = await _cacheService.getCachedBookMetadata(
+        _firstDocumentOpenedKey,
+      );
+
       if (firstDocumentOpened != null) {
         // Already sent, don't send again
         return;
@@ -171,18 +180,19 @@ class NotificationService {
       }
 
       // Android notification details
-      const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-        'book_notifications',
-        'Book Notifications',
-        channelDescription: 'Notifications for book reading activities',
-        importance: Importance.high,
-        priority: Priority.high,
-        showWhen: true,
-        enableVibration: true,
-        playSound: true,
-        icon: '@drawable/ic_notification',
-        styleInformation: BigTextStyleInformation(''),
-      );
+      const AndroidNotificationDetails androidDetails =
+          AndroidNotificationDetails(
+            'book_notifications',
+            'Book Notifications',
+            channelDescription: 'Notifications for book reading activities',
+            importance: Importance.high,
+            priority: Priority.high,
+            showWhen: true,
+            enableVibration: true,
+            playSound: true,
+            icon: '@drawable/ic_notification',
+            styleInformation: BigTextStyleInformation(''),
+          );
 
       // iOS notification details
       const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
@@ -206,14 +216,11 @@ class NotificationService {
       );
 
       // Mark as sent in cache
-      await _cacheService.cacheBookMetadata(
-        _firstDocumentOpenedKey,
-        {
-          'sent': true,
-          'sentAt': DateTime.now().toIso8601String(),
-          'firstBookTitle': bookTitle,
-        },
-      );
+      await _cacheService.cacheBookMetadata(_firstDocumentOpenedKey, {
+        'sent': true,
+        'sentAt': DateTime.now().toIso8601String(),
+        'firstBookTitle': bookTitle,
+      });
     } catch (e) {
       // Handle error silently
     }
@@ -225,8 +232,21 @@ class NotificationService {
       await _showNotification(
         id: 2,
         title: '🎉 Magnificent Achievement!',
-        body: 'You\'ve completed "$bookTitle"! The Butler is most impressed, Sir.',
+        body:
+            'You\'ve completed "$bookTitle"! The Butler is most impressed, Sir.',
       );
+    } catch (e) {
+      // Handle error silently
+    }
+  }
+
+  Future<void> sendFcmNotification({
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      await _showNotification(id: 2, title: title, body: body);
     } catch (e) {
       // Handle error silently
     }
@@ -238,7 +258,8 @@ class NotificationService {
       await _showNotification(
         id: 3,
         title: '🎯 Halfway Milestone!',
-        body: 'You\'ve reached the midpoint of "$bookTitle". Excellent progress!',
+        body:
+            'You\'ve reached the midpoint of "$bookTitle". Excellent progress!',
       );
     } catch (e) {
       // Handle error silently
@@ -252,14 +273,15 @@ class NotificationService {
     required double pagesPerMinute,
   }) async {
     try {
-      final timeText = durationMinutes > 0 
+      final timeText = durationMinutes > 0
           ? '$durationMinutes ${durationMinutes == 1 ? 'minute' : 'minutes'}'
           : 'quick session';
-      
+
       await _showNotification(
         id: 4,
         title: '📚 Session Complete!',
-        body: '$pagesRead ${pagesRead == 1 ? 'page' : 'pages'} read in $timeText. Reading speed: ${pagesPerMinute.toStringAsFixed(1)} pages/min.',
+        body:
+            '$pagesRead ${pagesRead == 1 ? 'page' : 'pages'} read in $timeText. Reading speed: ${pagesPerMinute.toStringAsFixed(1)} pages/min.',
       );
 
       // Send exceptional velocity notification if reading speed is high
@@ -284,13 +306,15 @@ class NotificationService {
         await _showNotification(
           id: 6,
           title: '🏆 Milestone Unlocked!',
-          body: 'You\'ve achieved a $streakDays-day reading streak. The Butler is most impressed, Sir!',
+          body:
+              'You\'ve achieved a $streakDays-day reading streak. The Butler is most impressed, Sir!',
         );
       } else {
         await _showNotification(
           id: 7,
           title: '📖 Reading Streak',
-          body: 'Your current $streakDays-day streak is promising. Aim for 7 consecutive days to establish a robust habit, Sir.',
+          body:
+              'Your current $streakDays-day streak is promising. Aim for 7 consecutive days to establish a robust habit, Sir.',
         );
       }
     } catch (e) {
@@ -309,14 +333,17 @@ class NotificationService {
         await _showNotification(
           id: 8,
           title: '🎯 Excellent Pace!',
-          body: 'At this rate, you\'ll read $projectedBooks books this year, surpassing your goal of $readingGoal. Excellent work, Sir!',
+          body:
+              'At this rate, you\'ll read $projectedBooks books this year, surpassing your goal of $readingGoal. Excellent work, Sir!',
         );
       } else {
-        final increaseNeeded = ((readingGoal - projectedBooks) / projectedBooks * 100).round();
+        final increaseNeeded =
+            ((readingGoal - projectedBooks) / projectedBooks * 100).round();
         await _showNotification(
           id: 9,
           title: '📊 Goal Progress Update',
-          body: 'You\'re on track for $projectedBooks books. To reach your goal of $readingGoal, increase your pace by $increaseNeeded%.',
+          body:
+              'You\'re on track for $projectedBooks books. To reach your goal of $readingGoal, increase your pace by $increaseNeeded%.',
         );
       }
     } catch (e) {
@@ -333,7 +360,8 @@ class NotificationService {
       await _showNotification(
         id: 10,
         title: '📅 Weekly Forecast',
-        body: 'At your current pace of $averagePagesPerDay pages daily, you\'ll complete approximately $estimatedBooksThisWeek ${estimatedBooksThisWeek == 1 ? 'book' : 'books'} this week.',
+        body:
+            'At your current pace of $averagePagesPerDay pages daily, you\'ll complete approximately $estimatedBooksThisWeek ${estimatedBooksThisWeek == 1 ? 'book' : 'books'} this week.',
       );
     } catch (e) {
       // Handle error silently
@@ -341,16 +369,19 @@ class NotificationService {
   }
 
   // Send reading velocity notification
-  Future<void> sendReadingVelocityNotification(double averagePagesPerMinute) async {
+  Future<void> sendReadingVelocityNotification(
+    double averagePagesPerMinute,
+  ) async {
     try {
       final message = averagePagesPerMinute > 1.5
           ? 'Remarkable concentration, Sir!'
           : 'Consider minimizing distractions to improve focus.';
-      
+
       await _showNotification(
         id: 11,
         title: '📈 Reading Velocity',
-        body: 'Your average reading speed is ${averagePagesPerMinute.toStringAsFixed(1)} pages per minute. $message',
+        body:
+            'Your average reading speed is ${averagePagesPerMinute.toStringAsFixed(1)} pages per minute. $message',
       );
     } catch (e) {
       // Handle error silently
@@ -378,18 +409,19 @@ class NotificationService {
       }
 
       // Android notification details
-      const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-        'book_notifications',
-        'Book Notifications',
-        channelDescription: 'Notifications for book reading activities',
-        importance: Importance.high,
-        priority: Priority.high,
-        showWhen: true,
-        enableVibration: true,
-        playSound: true,
-        icon: '@drawable/ic_notification',
-        styleInformation: BigTextStyleInformation(''),
-      );
+      const AndroidNotificationDetails androidDetails =
+          AndroidNotificationDetails(
+            'book_notifications',
+            'Book Notifications',
+            channelDescription: 'Notifications for book reading activities',
+            importance: Importance.high,
+            priority: Priority.high,
+            showWhen: true,
+            enableVibration: true,
+            playSound: true,
+            icon: '@drawable/ic_notification',
+            styleInformation: BigTextStyleInformation(''),
+          );
 
       // iOS notification details
       const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
@@ -405,12 +437,7 @@ class NotificationService {
       );
 
       // Show notification
-      await _notifications.show(
-        id,
-        title,
-        body,
-        notificationDetails,
-      );
+      await _notifications.show(id, title, body, notificationDetails);
     } catch (e) {
       // Handle error silently
     }
@@ -425,5 +452,72 @@ class NotificationService {
   Future<void> cancelNotification(int id) async {
     await _notifications.cancel(id);
   }
-}
 
+  /// Schedule daily offline reminder at a specific time
+  /// [time] - TimeOfDay when to send the reminder
+  Future<void> scheduleOfflineReminder(TimeOfDay time) async {
+    try {
+      final now = tz.TZDateTime.now(tz.local);
+
+      // Create scheduled time for today
+      var scheduledDate = tz.TZDateTime(
+        tz.local,
+        now.year,
+        now.month,
+        now.day,
+        time.hour,
+        time.minute,
+      );
+
+      // If the time has already passed today, schedule for tomorrow
+      if (scheduledDate.isBefore(now)) {
+        scheduledDate = scheduledDate.add(const Duration(days: 1));
+      }
+
+      const AndroidNotificationDetails androidDetails =
+          AndroidNotificationDetails(
+            'offline_reminders',
+            'Reading Reminders',
+            channelDescription:
+                'Daily reminders to read when you\'ve been inactive',
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@drawable/ic_notification',
+          );
+
+      const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+
+      const NotificationDetails notificationDetails = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      // Schedule the notification to repeat daily
+      await _notifications.zonedSchedule(
+        12, // Unique ID for offline reminders
+        '📚 Time to Read!',
+        'The Butler suggests you resume your reading journey, Sir.',
+        scheduledDate,
+        notificationDetails,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        matchDateTimeComponents:
+            DateTimeComponents.time, // Repeat daily at this time
+      );
+    } catch (e) {
+      // Handle error silently
+    }
+  }
+
+  /// Cancel the offline reminder
+  Future<void> cancelOfflineReminder() async {
+    try {
+      await _notifications.cancel(12); // Cancel using the same ID
+    } catch (e) {
+      // Handle error silently
+    }
+  }
+}

@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pdfrx/pdfrx.dart';
+import 'package:project_thera/services/serverpod_service.dart';
 import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 import 'package:serverpod_flutter/serverpod_flutter.dart';
 import 'firebase_options.dart';
@@ -11,25 +12,28 @@ import 'services/push_notification_service.dart';
 import 'theme/app_theme.dart';
 import 'screens/main_page.dart';
 import 'package:project_thera_client/project_thera_client.dart';
+import 'dart:developer';
 
-///TODO: change back to url
-var newVariable = '172.28.113.151';
 late Client client;
+var newVariable = '10.223.5.151';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize Firebase first
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  client =
-      Client(
-          'http://$newVariable:8080/',
-          connectionTimeout: const Duration(seconds: 10),
-          streamingConnectionTimeout: const Duration(seconds: 5),
-          disconnectStreamsOnLostInternetConnection: true,
-        )
-        ..connectivityMonitor = FlutterConnectivityMonitor()
-        ..authSessionManager = FlutterAuthSessionManager();
+  try {
+    client =
+        Client(
+            ServerpodService.defaultServerUrl,
+            // 'http://$newVariable:8080/',
+            connectionTimeout: const Duration(seconds: 10),
+            streamingConnectionTimeout: const Duration(seconds: 5),
+            disconnectStreamsOnLostInternetConnection: true,
+          )
+          ..connectivityMonitor = FlutterConnectivityMonitor()
+          ..authSessionManager = FlutterAuthSessionManager();
+  } on Exception catch (e) {
+    log(e.toString());
+  }
 
   // Note: client.auth.initialize() is not needed - the session manager handles this automatically
   // Initialize pdfrx library
@@ -59,7 +63,7 @@ class FlutterButlerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'The Flutter Butler',
+      title: 'Book Butler',
       theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false,
       home: const MainNavigationScreen(),

@@ -1,7 +1,9 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 import 'dart:io';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/book.dart';
 import '../services/file_scanner_service.dart';
 import '../services/file_manager_service.dart';
@@ -71,6 +73,16 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
       _scannedFiles = [];
     });
 
+    if (Platform.isAndroid) {
+      if (await Permission.storage.request().isGranted) {
+        log('✅ Storage permission granted');
+      } else if (await Permission.manageExternalStorage.request().isGranted) {
+        log('✅ Manage External Storage permission granted');
+      } else {
+        log('❌ Storage permissions denied');
+      }
+    }
+
     try {
       final files = await _scannerService.scanDevice();
 
@@ -103,7 +115,49 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
     }
   }
 
+  Future<void> _pickFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'epub', 'mobi', 'fb2', 'txt'],
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final platformFile = result.files.first;
+        final file = BookFile(
+          name: platformFile.name,
+          path: platformFile.path!,
+          size: platformFile.size,
+          lastModified: DateTime.now(),
+          extension: platformFile.extension ?? '',
+          isContentUri:
+              false, // File picker returns real paths or cached copies
+        );
+        _selectFile(file);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error picking file: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _selectFile(BookFile file) {
+    if (file.extension.toLowerCase() == 'docx' ||
+        file.extension.toLowerCase() == 'doc') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('DOCX files are not supported at the moment.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
     setState(() {
       _selectedFile = file;
       _selectedFilePath = file.path;
@@ -111,14 +165,6 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
 
     // Extract metadata from filename
     _extractMetadataFromFilename(file.name);
-
-    // ScaffoldMessenger.of(context).showSnackBar(
-    //   SnackBar(
-    //     content: Text('File selected: ${file.name}'),
-    //     backgroundColor: Colors.green,
-    //     duration: const Duration(seconds: 1),
-    //   ),
-    // );
   }
 
   Future<void> _saveBook() async {
@@ -450,12 +496,12 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.more_vert),
-                    onPressed: () {
-                      // TODO: Show options menu
-                    },
-                  ),
+                  // IconButton(
+                  //   icon: const Icon(Icons.more_vert),
+                  //   onPressed: () {
+                  //     // TODO: Show options menu
+                  //   },
+                  // ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -481,7 +527,7 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Search for Books',
+                                    'Add Book File',
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleMedium
@@ -489,9 +535,7 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    Platform.isAndroid
-                                        ? 'Search Downloads and Documents folders for book files. No permission required!'
-                                        : 'Search for book files on your device.',
+                                    'Search your device or pick a specific file.',
                                     style: Theme.of(
                                       context,
                                     ).textTheme.bodySmall,
@@ -502,26 +546,44 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: _isScanning ? null : _scanDevice,
-                            icon: _isScanning
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.search),
-                            label: Text(
-                              _isScanning ? 'Searching...' : 'Search for Books',
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _isScanning ? null : _scanDevice,
+                                icon: _isScanning
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.search),
+                                label: Text(
+                                  _isScanning ? 'Scanning...' : 'Scan Device',
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
                             ),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _isScanning ? null : _pickFile,
+                                icon: const Icon(Icons.folder_open),
+                                label: const Text('Pick File'),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
                       ],
                     ),

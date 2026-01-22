@@ -15,6 +15,7 @@ class BookFile {
   final String extension;
   final bool isContentUri; // Track if this is a content URI from SAF
   final String? cachedPath; // Path to cached file (if available)
+  final DateTime? lastModified;
 
   BookFile({
     required this.path,
@@ -23,6 +24,7 @@ class BookFile {
     required this.extension,
     this.isContentUri = false,
     this.cachedPath,
+    this.lastModified,
   });
 
   String get formattedSize {

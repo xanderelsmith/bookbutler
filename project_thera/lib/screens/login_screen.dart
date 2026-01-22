@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/serverpod_provider.dart';
 import '../providers/user_provider.dart';
 import '../models/user.dart';
-import 'package:project_thera_client/src/protocol/user/user.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});

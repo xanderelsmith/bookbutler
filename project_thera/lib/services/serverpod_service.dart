@@ -1,17 +1,22 @@
 import 'dart:developer';
 
+import 'package:project_thera/main.dart';
 import 'package:project_thera/models/user.dart';
 import 'package:project_thera_client/project_thera_client.dart';
 import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 import 'package:serverpod_flutter/serverpod_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as developer;
-import '../main.dart';
+import 'dart:convert';
+import 'push_notification_service.dart';
 
 class ServerpodService {
   static const String _serverUrlKey = 'serverpod_server_url';
-  static final String _defaultServerUrl = 'http://${newVariable}:8080/';
+  static final String defaultServerUrl =
+      'https://project-thera.api.serverpod.space/';
+  // = 'http://$newVariable:8080/';
 
+  static const String _userCacheKey = 'cached_user_profile';
   late Client _client;
   bool _isInitialized = false;
 
@@ -25,7 +30,7 @@ class ServerpodService {
     try {
       // Get server URL from preferences or use default
       final prefs = await SharedPreferences.getInstance();
-      final serverUrl = prefs.getString(_serverUrlKey) ?? _defaultServerUrl;
+      final serverUrl = prefs.getString(_serverUrlKey) ?? defaultServerUrl;
 
       // Initialize the client with authentication session manager
       // Disable streaming connections to avoid random port connection errors
@@ -54,7 +59,7 @@ class ServerpodService {
 
   Future<String?> getServerUrl() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_serverUrlKey) ?? _defaultServerUrl;
+    return prefs.getString(_serverUrlKey) ?? defaultServerUrl;
   }
 
   /// Attempts to restore a previous session.
@@ -63,23 +68,42 @@ class ServerpodService {
     if (!_isInitialized) await initialize();
 
     try {
+      // 1. Check if we have a valid session token locally
       final signedIn = await isSignedIn();
+
       if (signedIn) {
         developer.log('Session restored, fetching user profile...');
-        final user = await _ensureUserProfile();
-        final userModel = UserModel(
-          email: user.email ?? '', // Fallback or fetch from auth info if needed
-          authUserId: user.authUserId,
-          nickname: user.username,
-          bio: user.bio,
-        );
-        developer.log('Session restoration successful: $userModel');
-        return userModel;
+        // 2. Try to fetch fresh profile from server
+        try {
+          final user = await _ensureUserProfile();
+          final userModel = UserModel(
+            email:
+                user.email ?? '', // Fallback or fetch from auth info if needed
+            authUserId: user.authUserId,
+            nickname: user.username,
+            bio: user.bio,
+          );
+          developer.log('Session restoration successful: $userModel');
+
+          // 3. Cache the fresh profile
+          await _cacheUser(userModel);
+          return userModel;
+        } catch (e) {
+          developer.log(
+            'Failed to fetch fresh profile, falling back to cache: $e',
+          );
+          // 4. Network/Server error -> Fallback to cache without signing out
+          return await _getCachedUser();
+        }
+      } else {
+        // Not signed in
+        return null;
       }
     } catch (e) {
       developer.log('Failed to restore session: $e');
+      // If something critical fails (e.g. init), try cache as last resort
+      return await _getCachedUser();
     }
-    return null;
   }
 
   /// Logs in an existing user with email / password.
@@ -114,8 +138,18 @@ class ServerpodService {
           bio: user.bio,
         );
         log(userModel.toString());
+        // Cache on login
+        await _cacheUser(userModel);
+
+        // Sync FCM Token
+        final pushService = PushNotificationService();
+        if (pushService.currentToken != null) {
+          pushService.sendTokenToServer(pushService.currentToken!);
+        }
+
         return userModel;
       }
+      return null;
     } catch (e, stackTrace) {
       developer.log(
         'Login failed for email: $email',
@@ -160,12 +194,23 @@ class ServerpodService {
 
       // Create user profile in the custom user table (with username if provided)
       final user = await _ensureUserProfile(username: username);
-      return UserModel(
+      final userModel = UserModel(
         email: email,
         authUserId: user.authUserId,
         nickname: user.username,
         bio: user.bio,
       );
+
+      // Cache on register
+      await _cacheUser(userModel);
+
+      // Sync FCM Token
+      final pushService = PushNotificationService();
+      if (pushService.currentToken != null) {
+        pushService.sendTokenToServer(pushService.currentToken!);
+      }
+
+      return userModel;
     } catch (e, stackTrace) {
       developer.log(
         'Registration/Login failed for email: $email',
@@ -186,6 +231,8 @@ class ServerpodService {
       // Check the authentication state directly
       return sessionManager.client.authSessionManager.isAuthenticated;
     } catch (e) {
+      // If checking auth state fails, we assume strictly not signed in (or check cache?)
+      // Usually isAuthenticated is a local check, so it shouldn't allow if init fails.
       return false;
     }
   }
@@ -199,6 +246,10 @@ class ServerpodService {
       await sessionManager.signOutDevice();
     } catch (e) {
       // Ignore errors during sign out
+    } finally {
+      // Always clear local cache on sign out
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_userCacheKey);
     }
   }
 
@@ -270,5 +321,33 @@ class ServerpodService {
       developer.log('Error ensuring user profile exists: $e');
       throw Exception('Failed to ensure user profile: $e');
     }
+  }
+
+  // ===== Caching Methods =====
+
+  Future<void> _cacheUser(UserModel user) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString = jsonEncode(user.toJson());
+      await prefs.setString(_userCacheKey, jsonString);
+      developer.log('User cached successfully');
+    } catch (e) {
+      developer.log('Error caching user: $e');
+    }
+  }
+
+  Future<UserModel?> _getCachedUser() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString = prefs.getString(_userCacheKey);
+      if (jsonString != null) {
+        developer.log('Found cached user');
+        final jsonMap = jsonDecode(jsonString);
+        return UserModel.fromJson(jsonMap);
+      }
+    } catch (e) {
+      developer.log('Error reading user cache: $e');
+    }
+    return null;
   }
 }

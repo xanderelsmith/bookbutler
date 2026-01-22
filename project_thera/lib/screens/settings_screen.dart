@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:project_thera/providers/user_provider.dart';
 import '../services/home_widget_service.dart';
+import '../services/notification_service.dart';
+import '../services/secure_cache_service.dart';
+import '../models/offline_reminder_settings.dart';
 import '../providers/serverpod_provider.dart';
 import '../providers/reading_goal_provider.dart';
 import 'profile_screen.dart';
@@ -21,12 +24,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _weeklySummary = false;
   bool _homeWidgetEnabled = false;
   bool _pinWidgetSupported = false;
+  OfflineReminderSettings _reminderSettings =
+      OfflineReminderSettings.defaultSettings();
 
   @override
   void initState() {
     super.initState();
     _loadHomeWidgetEnabled();
     _checkPinWidgetSupport();
+    _loadReminderSettings();
+  }
+
+  Future<void> _loadReminderSettings() async {
+    final cacheService = SecureCacheService();
+    final cached = await cacheService.getReminderSettings();
+    if (cached != null && mounted) {
+      setState(() {
+        _reminderSettings = OfflineReminderSettings.fromJson(cached);
+      });
+    }
   }
 
   Future<void> _loadHomeWidgetEnabled() async {
@@ -268,15 +284,51 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 Opacity(
                   opacity: _notificationsEnabled ? 1.0 : 0.5,
                   child: SwitchListTile(
-                    title: const Text('Weekly Summary'),
-                    subtitle: const Text('Get a weekly reading report'),
-                    value: _weeklySummary,
+                    title: const Text('Offline Reading Reminder'),
+                    subtitle: Text(
+                      _reminderSettings.enabled
+                          ? 'Remind me daily at ${_reminderSettings.time.format(context)}'
+                          : 'Get reminded to read when inactive',
+                    ),
+                    value: _reminderSettings.enabled,
                     onChanged: _notificationsEnabled
-                        ? (value) {
+                        ? (value) async {
+                            final newSettings = _reminderSettings.copyWith(
+                              enabled: value,
+                            );
                             setState(() {
-                              _weeklySummary = value;
+                              _reminderSettings = newSettings;
                             });
+
+                            // Save to cache
+                            final cacheService = SecureCacheService();
+                            await cacheService.saveReminderSettings(
+                              newSettings.toJson(),
+                            );
+
+                            // Schedule or cancel notification
+                            final notificationService = NotificationService();
+                            if (value) {
+                              await selectTimeDialog(context);
+                              await notificationService.scheduleOfflineReminder(
+                                _reminderSettings.time,
+                              );
+                            } else {
+                              await notificationService.cancelOfflineReminder();
+                            }
                           }
+                        : null,
+                    secondary:
+                        _notificationsEnabled && _reminderSettings.enabled
+                        ? IconButton(
+                            icon: const Icon(
+                              Icons.access_time,
+                              color: Colors.blue,
+                            ),
+                            onPressed: () async {
+                              await selectTimeDialog(context);
+                            },
+                          )
                         : null,
                   ),
                 ),
@@ -416,6 +468,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> selectTimeDialog(BuildContext context) async {
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: _reminderSettings.time,
+    );
+    if (pickedTime != null) {
+      final newSettings = _reminderSettings.copyWith(time: pickedTime);
+      setState(() {
+        _reminderSettings = newSettings;
+      });
+
+      // Save to cache
+      final cacheService = SecureCacheService();
+      await cacheService.saveReminderSettings(newSettings.toJson());
+
+      // Reschedule notification
+      final notificationService = NotificationService();
+      await notificationService.scheduleOfflineReminder(pickedTime);
+    }
   }
 
   Widget _buildSectionHeader(String title) {

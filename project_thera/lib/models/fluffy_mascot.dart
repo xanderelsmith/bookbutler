@@ -26,7 +26,7 @@ class FluffyMascot {
     // Bind data (auto-bind to default view model)
     // If the Rive file has multiple view models, you might need DataBind.byName('ViewModel1')
     try {
-      _viewModelInstance = _controller.dataBind(DataBind.auto())!;
+      _viewModelInstance = _controller.dataBind(DataBind.auto());
     } catch (e) {
       log('Error binding to ViewModel: $e');
       // Fallback or rethrow depending on strictness
