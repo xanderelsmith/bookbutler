@@ -1119,6 +1119,43 @@ class _NotificationEndpoint {
     });
   }
 
+  _i3.Future<bool> sendNotificationToAllUsers(
+    _i1.TestSessionBuilder sessionBuilder,
+    String title,
+    String body, {
+    Map<String, dynamic>? data,
+  }) async {
+    return _i1.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _i1.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'notification',
+            method: 'sendNotificationToAllUsers',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'notification',
+          methodName: 'sendNotificationToAllUsers',
+          parameters: _i1.testObjectToJson({
+            'title': title,
+            'body': body,
+            'data': data,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _i3.Future<bool>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
   _i3.Future<int> cleanupOldDevices(
     _i1.TestSessionBuilder sessionBuilder, {
     required int daysOld,

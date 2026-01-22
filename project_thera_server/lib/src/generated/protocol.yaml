@@ -30,6 +30,7 @@ notification:
   - sendNotificationToMultipleUsers:
   - sendNotificationToTopic:
   - getMyDevices:
+  - sendNotificationToAllUsers:
   - cleanupOldDevices:
 user:
   - getCurrentUser:

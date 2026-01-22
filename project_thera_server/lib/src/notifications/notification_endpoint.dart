@@ -21,7 +21,7 @@ class NotificationEndpoint extends Endpoint {
     String deviceToken,
     String platform,
   ) async {
-    final authInfo = await session.authenticated;
+    final authInfo = session.authenticated;
     if (authInfo == null) {
       throw Exception('User must be authenticated');
     }
@@ -240,6 +240,27 @@ class NotificationEndpoint extends Endpoint {
       session,
       where: (t) =>
           t.authUserId.equals(authInfo.authUserId) & t.isActive.equals(true),
+    );
+  }
+
+  /// Send notification to all users
+  ///
+  /// [title] - Notification title
+  /// [body] - Notification body
+  /// [data] - Optional custom data payload
+  Future<bool> sendNotificationToAllUsers(
+    Session session,
+    String title,
+    String body, {
+    Map<String, dynamic>? data,
+  }) async {
+    // We use the 'all_users' topic that clients subscribe to
+    return await sendNotificationToTopic(
+      session,
+      'all_users',
+      title,
+      body,
+      data: data,
     );
   }
 

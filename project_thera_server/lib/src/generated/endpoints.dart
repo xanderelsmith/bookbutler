@@ -737,6 +737,37 @@ class Endpoints extends _i1.EndpointDispatch {
               ) async => (endpoints['notification'] as _i8.NotificationEndpoint)
                   .getMyDevices(session),
         ),
+        'sendNotificationToAllUsers': _i1.MethodConnector(
+          name: 'sendNotificationToAllUsers',
+          params: {
+            'title': _i1.ParameterDescription(
+              name: 'title',
+              type: _i1.getType<String>(),
+              nullable: false,
+            ),
+            'body': _i1.ParameterDescription(
+              name: 'body',
+              type: _i1.getType<String>(),
+              nullable: false,
+            ),
+            'data': _i1.ParameterDescription(
+              name: 'data',
+              type: _i1.getType<Map<String, dynamic>?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _i1.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['notification'] as _i8.NotificationEndpoint)
+                  .sendNotificationToAllUsers(
+                    session,
+                    params['title'],
+                    params['body'],
+                    data: params['data'],
+                  ),
+        ),
         'cleanupOldDevices': _i1.MethodConnector(
           name: 'cleanupOldDevices',
           params: {

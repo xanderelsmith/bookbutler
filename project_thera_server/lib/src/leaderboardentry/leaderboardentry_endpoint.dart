@@ -1,12 +1,12 @@
 import '../generated/protocol.dart';
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_auth_idp_server/core.dart';
-import 'dart:developer' as developer;
-import '../services/fcm_service.dart';
+import '../services/leaderboard_service.dart';
 
 /// Endpoint for managing leaderboard entries.
 /// Access this endpoint as `client.leaderboardEntry` from the Flutter client.
 class LeaderboardEntryEndpoint extends Endpoint {
+
   /// Gets the top N leaderboard entries, ordered by points (descending).
   /// [limit] defaults to 10 if not provided.
   Future<List<LeaderboardEntry>> getTopEntries(
@@ -26,7 +26,7 @@ class LeaderboardEntryEndpoint extends Endpoint {
 
   /// Gets the current authenticated user's leaderboard entry.
   Future<LeaderboardEntry?> getCurrentUserEntry(Session session) async {
-    final authInfo = await session.authenticated;
+    final authInfo = session.authenticated;
     if (authInfo == null) return null;
 
     // Correctly get the UuidValue from the session extension
@@ -71,69 +71,20 @@ class LeaderboardEntryEndpoint extends Endpoint {
     required int pages,
     String? email,
   }) async {
-    try {
-      final authInfo = session.authenticated;
-      if (authInfo == null) {
-        throw Exception('User must be authenticated');
-      }
-
-      final user = await User.db.findFirstRow(
-        session,
-        where: (u) => u.authUserId.equals(authInfo.authUserId),
-      );
-
-      if (user == null) {
-        throw Exception(
-          'User profile not found. Please create a user profile first.',
-        );
-      }
-
-      // Ensure name is not empty (use email or fallback)
-      final finalName = name.isNotEmpty
-          ? name
-          : (email?.isNotEmpty == true ? email! : 'Reader');
-
-      var entry = await LeaderboardEntry.db.findFirstRow(
-        session,
-        where: (e) => e.userId.equals(user.id!),
-      );
-
-      if (entry == null) {
-        entry = await LeaderboardEntry.db.insertRow(
-          session,
-          LeaderboardEntry(
-            points: points,
-            name: finalName,
-            books: books,
-            pages: pages,
-            email: email,
-            userId: user.id!,
-          ),
-        );
-      } else {
-        entry.points = points;
-        entry.name = finalName;
-        entry.books = books;
-        entry.pages = pages;
-        entry.email = email ?? entry.email;
-        entry = await LeaderboardEntry.db.updateRow(session, entry);
-      }
-
-      // Return with relations
-      return (await LeaderboardEntry.db.findById(
-        session,
-        entry.id!,
-        include: LeaderboardEntry.include(user: User.include()),
-      ))!;
-    } catch (e, stackTrace) {
-      developer.log(
-        '❌ [LeaderboardEndpoint] Error in upsertEntry: $e',
-        error: e,
-        stackTrace: stackTrace,
-        name: 'LeaderboardEndpoint.upsertEntry',
-      );
-      rethrow;
+    final authInfo = session.authenticated;
+    if (authInfo == null) {
+      throw Exception('User must be authenticated');
     }
+
+    return await LeaderboardService.instance.upsertEntry(
+      session,
+      points: points,
+      name: name,
+      books: books,
+      pages: pages,
+      authUserId: authInfo.authUserId,
+      email: email,
+    );
   }
 
   /// Gets leaderboard entries around a specific user's position.
