@@ -49,6 +49,7 @@ dependencies:
   # Notifications
   flutter_local_notifications: ^19.5.0
   timezone: ^0.10.1
+  alarm: ^5.1.5
   
   # Firebase
   firebase_core: ^4.3.0

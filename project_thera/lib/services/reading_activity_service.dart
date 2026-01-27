@@ -54,12 +54,14 @@ class ReadingActivityService {
       );
     } else {
       // Create new activity
-      activities.add(ReadingActivity(
-        date: normalizedDate,
-        pagesRead: pagesRead,
-        minutesSpent: minutesSpent,
-        bookIds: [bookId],
-      ));
+      activities.add(
+        ReadingActivity(
+          date: normalizedDate,
+          pagesRead: pagesRead,
+          minutesSpent: minutesSpent,
+          bookIds: [bookId],
+        ),
+      );
     }
 
     return await _saveActivities(activities);

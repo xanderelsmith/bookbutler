@@ -326,7 +326,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               color: Colors.blue,
                             ),
                             onPressed: () async {
-                              await selectTimeDialog(context);
+                              final changed = await selectTimeDialog(context);
+                              if (changed && mounted) {
+                                final notificationService =
+                                    NotificationService();
+                                await notificationService
+                                    .scheduleOfflineReminder(
+                                      _reminderSettings.time,
+                                    );
+                              }
                             },
                           )
                         : null,
@@ -470,7 +478,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Future<void> selectTimeDialog(BuildContext context) async {
+  Future<bool> selectTimeDialog(BuildContext context) async {
     final pickedTime = await showTimePicker(
       context: context,
       initialTime: _reminderSettings.time,
@@ -485,10 +493,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final cacheService = SecureCacheService();
       await cacheService.saveReminderSettings(newSettings.toJson());
 
-      // Reschedule notification
-      final notificationService = NotificationService();
-      await notificationService.scheduleOfflineReminder(pickedTime);
+      return true;
     }
+    return false;
   }
 
   Widget _buildSectionHeader(String title) {

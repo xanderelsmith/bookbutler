@@ -4,7 +4,10 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'dart:io';
+import 'dart:convert';
+import 'push_notification_service.dart';
 import 'secure_cache_service.dart';
+import 'package:alarm/alarm.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -19,6 +22,8 @@ class NotificationService {
 
   // Initialize notification service
   Future<void> initialize() async {
+    await Alarm.init();
+
     // Request notification permission (only needed for Android 13+)
     if (Platform.isAndroid) {
       try {
@@ -26,16 +31,22 @@ class NotificationService {
         if (status.isDenied) {
           await Permission.notification.request();
         }
+
+        // Request exact alarm permission for Android 12+ (API 31+)
+        final exactAlarmStatus = await Permission.scheduleExactAlarm.status;
+        if (exactAlarmStatus.isDenied) {
+          await Permission.scheduleExactAlarm.request();
+        }
       } catch (e) {
         // Permission might not be available on older Android versions
-        // This is fine - notifications work without explicit permission on Android 12 and below
+        // This is fine
       }
     }
 
     // Android initialization settings
     // Use white notification icon for proper display when expanded
     const AndroidInitializationSettings androidSettings =
-        AndroidInitializationSettings('@drawable/ic_notification');
+        AndroidInitializationSettings('ic_notification');
 
     // iOS initialization settings
     const DarwinInitializationSettings iosSettings =
@@ -83,7 +94,14 @@ class NotificationService {
 
   // Handle notification tap
   void _onNotificationTapped(NotificationResponse response) {
-    // Handle notification tap if needed
+    if (response.payload != null && response.payload!.isNotEmpty) {
+      try {
+        final Map<String, dynamic> data = jsonDecode(response.payload!);
+        PushNotificationService().handleNotificationNavigation(data);
+      } catch (e) {
+        debugPrint('Error parsing notification payload: $e');
+      }
+    }
   }
 
   // Check and send first app launch notification
@@ -121,7 +139,7 @@ class NotificationService {
             showWhen: true,
             enableVibration: true,
             playSound: true,
-            icon: '@drawable/ic_notification',
+            icon: 'ic_notification',
             styleInformation: BigTextStyleInformation(''),
           );
 
@@ -190,7 +208,7 @@ class NotificationService {
             showWhen: true,
             enableVibration: true,
             playSound: true,
-            icon: '@drawable/ic_notification',
+            icon: 'ic_notification',
             styleInformation: BigTextStyleInformation(''),
           );
 
@@ -246,7 +264,14 @@ class NotificationService {
     Map<String, dynamic>? data,
   }) async {
     try {
-      await _showNotification(id: 2, title: title, body: body);
+      final id = DateTime.now().millisecondsSinceEpoch.remainder(100000);
+      final payload = data != null ? jsonEncode(data) : null;
+      await _showNotification(
+        id: id,
+        title: title,
+        body: body,
+        payload: payload,
+      );
     } catch (e) {
       // Handle error silently
     }
@@ -393,6 +418,7 @@ class NotificationService {
     required int id,
     required String title,
     required String body,
+    String? payload,
   }) async {
     try {
       // Request permission if not granted (only for Android 13+)
@@ -419,7 +445,7 @@ class NotificationService {
             showWhen: true,
             enableVibration: true,
             playSound: true,
-            icon: '@drawable/ic_notification',
+            icon: 'ic_notification',
             styleInformation: BigTextStyleInformation(''),
           );
 
@@ -437,7 +463,13 @@ class NotificationService {
       );
 
       // Show notification
-      await _notifications.show(id, title, body, notificationDetails);
+      await _notifications.show(
+        id,
+        title,
+        body,
+        notificationDetails,
+        payload: payload,
+      );
     } catch (e) {
       // Handle error silently
     }
@@ -453,15 +485,26 @@ class NotificationService {
     await _notifications.cancel(id);
   }
 
+  Future<void> checkAndroidScheduleExactAlarmPermission() async {
+    final status = await Permission.scheduleExactAlarm.status;
+    debugPrint('Schedule exact alarm permission: $status.');
+    if (status.isDenied) {
+      debugPrint('Requesting schedule exact alarm permission...');
+      final res = await Permission.scheduleExactAlarm.request();
+      debugPrint(
+        'Schedule exact alarm permission ${res.isGranted ? '' : 'not'} granted.',
+      );
+    }
+  }
+
   /// Schedule daily offline reminder at a specific time
   /// [time] - TimeOfDay when to send the reminder
   Future<void> scheduleOfflineReminder(TimeOfDay time) async {
     try {
-      final now = tz.TZDateTime.now(tz.local);
+      final now = DateTime.now();
 
       // Create scheduled time for today
-      var scheduledDate = tz.TZDateTime(
-        tz.local,
+      var scheduledDate = DateTime(
         now.year,
         now.month,
         now.day,
@@ -474,48 +517,44 @@ class NotificationService {
         scheduledDate = scheduledDate.add(const Duration(days: 1));
       }
 
-      const AndroidNotificationDetails androidDetails =
-          AndroidNotificationDetails(
-            'offline_reminders',
-            'Reading Reminders',
-            channelDescription:
-                'Daily reminders to read when you\'ve been inactive',
-            importance: Importance.high,
-            priority: Priority.high,
-            icon: '@drawable/ic_notification',
-          );
+      await checkAndroidScheduleExactAlarmPermission();
 
-      const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: true,
-        presentSound: true,
+      final alarmSettings = AlarmSettings(
+        id: 12,
+        dateTime: scheduledDate,
+        assetAudioPath: 'asset/alarm.mp3', // Make sure to add this asset
+        loopAudio: false,
+        vibrate: true,
+
+        warningNotificationOnKill: true,
+
+        ///
+        androidFullScreenIntent: true,
+        volumeSettings: VolumeSettings.fade(
+          volume: 0.8,
+          fadeDuration: Duration(seconds: 5),
+          volumeEnforced: true,
+        ),
+        notificationSettings: const NotificationSettings(
+          title: '📚 Time to Read!',
+          body: 'The Butler suggests you resume your reading journey, Sir.',
+          stopButton: 'Stop the alarm',
+          icon: 'ic_notification',
+          iconColor: Color(0xff862778),
+        ),
       );
 
-      const NotificationDetails notificationDetails = NotificationDetails(
-        android: androidDetails,
-        iOS: iosDetails,
-      );
-
-      // Schedule the notification to repeat daily
-      await _notifications.zonedSchedule(
-        12, // Unique ID for offline reminders
-        '📚 Time to Read!',
-        'The Butler suggests you resume your reading journey, Sir.',
-        scheduledDate,
-        notificationDetails,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        matchDateTimeComponents:
-            DateTimeComponents.time, // Repeat daily at this time
-      );
+      await Alarm.set(alarmSettings: alarmSettings);
     } catch (e) {
       // Handle error silently
+      debugPrint('Error scheduling alarm: $e');
     }
   }
 
   /// Cancel the offline reminder
   Future<void> cancelOfflineReminder() async {
     try {
-      await _notifications.cancel(12); // Cancel using the same ID
+      await Alarm.stop(12);
     } catch (e) {
       // Handle error silently
     }

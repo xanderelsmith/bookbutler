@@ -79,7 +79,9 @@ class LeaderboardService {
             pages: pages,
             email: email,
           );
-
+      developer.log(
+        '📊 [LeaderboardService] upsertEntry completed successfully. Entry ID: ${notification.id}, Points: ${notification.points}',
+      );
       return notification;
     } catch (e) {
       developer.log('Error upserting leaderboard entry: $e');
@@ -134,9 +136,6 @@ class LeaderboardService {
         email: email,
       );
 
-      developer.log(
-        '📊 [LeaderboardService] upsertEntry completed successfully. Entry ID: ${result.id}, Points: ${result.points}',
-      );
       return result;
     } catch (e, stackTrace) {
       developer.log(

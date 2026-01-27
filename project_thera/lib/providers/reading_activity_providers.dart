@@ -10,8 +10,10 @@ final readingActivityServiceProvider = Provider<ReadingActivityService>((ref) {
 });
 
 // StateNotifier for managing reading activities
-class ReadingActivitiesNotifier extends StateNotifier<AsyncValue<List<ReadingActivity>>> {
-  ReadingActivitiesNotifier(this._service, this._streakService) : super(const AsyncValue.loading()) {
+class ReadingActivitiesNotifier
+    extends StateNotifier<AsyncValue<List<ReadingActivity>>> {
+  ReadingActivitiesNotifier(this._service, this._streakService)
+    : super(const AsyncValue.loading()) {
     loadActivities();
   }
 
@@ -40,12 +42,22 @@ class ReadingActivitiesNotifier extends StateNotifier<AsyncValue<List<ReadingAct
     }
   }
 
-  Future<bool> updateDailyActivity(DateTime date, int pagesRead, int minutesSpent, String bookId) async {
+  Future<bool> updateDailyActivity(
+    DateTime date,
+    int pagesRead,
+    int minutesSpent,
+    String bookId,
+  ) async {
     try {
-      final success = await _service.updateDailyActivity(date, pagesRead, minutesSpent, bookId);
+      final success = await _service.updateDailyActivity(
+        date,
+        pagesRead,
+        minutesSpent,
+        bookId,
+      );
       if (success) {
         await loadActivities();
-        
+
         // Update streak when reading activity is recorded
         if (pagesRead > 0) {
           await _streakService.updateStreak(date);
@@ -59,27 +71,37 @@ class ReadingActivitiesNotifier extends StateNotifier<AsyncValue<List<ReadingAct
 }
 
 // Provider for activities notifier
-final readingActivitiesProvider = StateNotifierProvider<ReadingActivitiesNotifier, AsyncValue<List<ReadingActivity>>>((ref) {
-  final service = ref.watch(readingActivityServiceProvider);
-  final streakService = ref.watch(streakServiceProvider);
-  return ReadingActivitiesNotifier(service, streakService);
-});
+final readingActivitiesProvider =
+    StateNotifierProvider<
+      ReadingActivitiesNotifier,
+      AsyncValue<List<ReadingActivity>>
+    >((ref) {
+      final service = ref.watch(readingActivityServiceProvider);
+      final streakService = ref.watch(streakServiceProvider);
+      return ReadingActivitiesNotifier(service, streakService);
+    });
 
 // Provider for monthly activities (grouped by month)
-final monthlyActivitiesProvider = Provider.family<List<Map<DateTime, int>>, DateTime>((ref, month) {
-  final activitiesAsync = ref.watch(readingActivitiesProvider);
-  return activitiesAsync.when(
-    data: (activities) {
-      final Map<DateTime, int> monthMap = {};
-      for (var activity in activities) {
-        if (activity.date.year == month.year && activity.date.month == month.month) {
-          final date = DateTime(activity.date.year, activity.date.month, activity.date.day);
-          monthMap[date] = (monthMap[date] ?? 0) + activity.pagesRead;
-        }
-      }
-      return [monthMap];
-    },
-    loading: () => [],
-    error: (_, __) => [],
-  );
-});
+final monthlyActivitiesProvider =
+    Provider.family<List<Map<DateTime, int>>, DateTime>((ref, month) {
+      final activitiesAsync = ref.watch(readingActivitiesProvider);
+      return activitiesAsync.when(
+        data: (activities) {
+          final Map<DateTime, int> monthMap = {};
+          for (var activity in activities) {
+            if (activity.date.year == month.year &&
+                activity.date.month == month.month) {
+              final date = DateTime(
+                activity.date.year,
+                activity.date.month,
+                activity.date.day,
+              );
+              monthMap[date] = (monthMap[date] ?? 0) + activity.pagesRead;
+            }
+          }
+          return [monthMap];
+        },
+        loading: () => [],
+        error: (_, __) => [],
+      );
+    });

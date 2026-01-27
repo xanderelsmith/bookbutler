@@ -11,10 +11,14 @@ import 'dart:convert';
 import 'push_notification_service.dart';
 
 class ServerpodService {
+  static final ServerpodService _instance = ServerpodService._internal();
+  factory ServerpodService() => _instance;
+  ServerpodService._internal();
+
   static const String _serverUrlKey = 'serverpod_server_url';
   static final String defaultServerUrl =
+      // 'http://$newVariable:8080/';
       'https://project-thera.api.serverpod.space/';
-  // = 'http://$newVariable:8080/';
 
   static const String _userCacheKey = 'cached_user_profile';
   late Client _client;
@@ -27,27 +31,22 @@ class ServerpodService {
   Future<void> initialize() async {
     if (_isInitialized) return;
 
-    try {
-      // Get server URL from preferences or use default
-      final prefs = await SharedPreferences.getInstance();
-      final serverUrl = prefs.getString(_serverUrlKey) ?? defaultServerUrl;
+    final prefs = await SharedPreferences.getInstance();
+    final serverUrl = prefs.getString(_serverUrlKey) ?? defaultServerUrl;
 
-      // Initialize the client with authentication session manager
-      // Disable streaming connections to avoid random port connection errors
-      _client =
-          Client(
-              serverUrl,
-              connectionTimeout: const Duration(seconds: 10),
-              streamingConnectionTimeout: const Duration(seconds: 5),
-              disconnectStreamsOnLostInternetConnection: true,
-            )
-            ..connectivityMonitor = FlutterConnectivityMonitor()
-            ..authSessionManager = FlutterAuthSessionManager();
+    _client =
+        Client(
+            serverUrl,
+            connectionTimeout: const Duration(seconds: 10),
+            streamingConnectionTimeout: const Duration(seconds: 5),
+            disconnectStreamsOnLostInternetConnection: true,
+          )
+          ..connectivityMonitor = FlutterConnectivityMonitor()
+          ..authSessionManager = FlutterAuthSessionManager();
 
-      _isInitialized = true;
-    } catch (e) {
-      throw Exception('Failed to initialize Serverpod client: $e');
-    }
+    // await _client.auth.initialize();
+
+    _isInitialized = true;
   }
 
   Future<void> setServerUrl(String url) async {
@@ -64,45 +63,50 @@ class ServerpodService {
 
   /// Attempts to restore a previous session.
   /// Returns the UserModel if successful, null otherwise.
+  /// Attempts to restore a previous session.
+  /// Returns the UserModel if successful, null otherwise.
   Future<UserModel?> restoreSession() async {
-    if (!_isInitialized) await initialize();
+    // 1. Make sure the client and auth are initialized
+    await initialize(); // this should call `_client.auth.initialize()` internally
 
     try {
-      // 1. Check if we have a valid session token locally
-      final signedIn = await isSignedIn();
+      // 2. Check if we have a valid, restored session
+      final signedIn = _client.authSessionManager.isAuthenticated;
 
       if (signedIn) {
         developer.log('Session restored, fetching user profile...');
-        // 2. Try to fetch fresh profile from server
+
         try {
+          // 3. Fetch fresh profile from your server
           final user = await _ensureUserProfile();
+
           final userModel = UserModel(
-            email:
-                user.email ?? '', // Fallback or fetch from auth info if needed
+            email: user.email ?? '',
             authUserId: user.authUserId,
             nickname: user.username,
             bio: user.bio,
           );
+
           developer.log('Session restoration successful: $userModel');
 
-          // 3. Cache the fresh profile
+          // 4. Cache the fresh profile
           await _cacheUser(userModel);
           return userModel;
         } catch (e) {
           developer.log(
             'Failed to fetch fresh profile, falling back to cache: $e',
           );
-          // 4. Network/Server error -> Fallback to cache without signing out
-          return await _getCachedUser();
+          // Network / server error → fall back to cache
+          return await getCachedUser();
         }
       } else {
-        // Not signed in
-        return null;
+        // Not signed in → try cached user only
+        return await getCachedUser();
       }
     } catch (e) {
       developer.log('Failed to restore session: $e');
-      // If something critical fails (e.g. init), try cache as last resort
-      return await _getCachedUser();
+      // Critical failure → last resort: cache
+      return await getCachedUser();
     }
   }
 
@@ -222,21 +226,6 @@ class ServerpodService {
     }
   }
 
-  Future<bool> isSignedIn() async {
-    if (!_isInitialized) await initialize();
-    try {
-      // Access the manager from the client
-      final sessionManager = _client.auth;
-
-      // Check the authentication state directly
-      return sessionManager.client.authSessionManager.isAuthenticated;
-    } catch (e) {
-      // If checking auth state fails, we assume strictly not signed in (or check cache?)
-      // Usually isAuthenticated is a local check, so it shouldn't allow if init fails.
-      return false;
-    }
-  }
-
   Future<void> signOut() async {
     if (!_isInitialized) await initialize();
     try {
@@ -253,26 +242,14 @@ class ServerpodService {
     }
   }
 
-  // Get user info from the server
-  Future<Map<String, dynamic>?> getSignedInUser() async {
-    if (!_isInitialized) await initialize();
-    final signedIn = await isSignedIn();
-    if (!signedIn) return null;
-
+  Future<bool> isSignedIn() async {
+    await initialize();
     try {
-      // For now, return basic signed-in info
-      // TODO: Create a custom endpoint to get user details if needed
-      // The user info can be retrieved from the server using a custom endpoint
-      return {
-        'signedIn': true,
-        // Additional user info would come from a custom server endpoint
-      };
-    } catch (e) {
-      // If we can't get user info, but we're signed in, return basic info
-      return {'signedIn': true};
+      return _client.authSessionManager.isAuthenticated;
+    } catch (_) {
+      return false;
     }
   }
-
   // ===== User Profile Methods =====
 
   /// Gets the current user's profile from the server
@@ -336,7 +313,7 @@ class ServerpodService {
     }
   }
 
-  Future<UserModel?> _getCachedUser() async {
+  Future<UserModel?> getCachedUser() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final jsonString = prefs.getString(_userCacheKey);

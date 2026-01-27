@@ -17,42 +17,45 @@ final leaderboardEntriesProvider = StreamProvider<List<LeaderboardEntry>>((
   final service = ref.watch(leaderboardServiceProvider);
   final serverpodService = ref.read(serverpodServiceProvider);
   final controller = StreamController<List<LeaderboardEntry>>();
-  
+
   // Initialize and then forward the server stream
-  serverpodService.initialize().then((_) {
-    final serverStream = service.streamTopEntries(
-      limit: 20,
-      updateIntervalSeconds: 3,
-    );
-    serverStream.listen(
-      (entries) {
-        if (!controller.isClosed) {
-          controller.add(entries);
-        }
-      },
-      onError: (error) {
+  serverpodService
+      .initialize()
+      .then((_) {
+        final serverStream = service.streamTopEntries(
+          limit: 20,
+          updateIntervalSeconds: 3,
+        );
+        serverStream.listen(
+          (entries) {
+            if (!controller.isClosed) {
+              controller.add(entries);
+            }
+          },
+          onError: (error) {
+            if (!controller.isClosed) {
+              controller.addError(error);
+            }
+          },
+          onDone: () {
+            if (!controller.isClosed) {
+              controller.close();
+            }
+          },
+        );
+      })
+      .catchError((error) {
         if (!controller.isClosed) {
           controller.addError(error);
         }
-      },
-      onDone: () {
-        if (!controller.isClosed) {
-          controller.close();
-        }
-      },
-    );
-  }).catchError((error) {
-    if (!controller.isClosed) {
-      controller.addError(error);
-    }
-  });
-  
+      });
+
   ref.onDispose(() {
     if (!controller.isClosed) {
       controller.close();
     }
   });
-  
+
   return controller.stream;
 });
 

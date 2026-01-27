@@ -10,7 +10,6 @@ class ReaderHeader extends StatelessWidget {
   final int progress;
   final bool isDocx;
   final bool isSearchActive;
-  final bool isFullscreen;
   final TextEditingController searchTextController;
   final DocxSearchController docxSearchController;
   final VoidCallback onClose;
@@ -27,7 +26,6 @@ class ReaderHeader extends StatelessWidget {
     required this.progress,
     required this.isDocx,
     required this.isSearchActive,
-    required this.isFullscreen,
     required this.searchTextController,
     required this.docxSearchController,
     required this.onClose,

@@ -4,12 +4,28 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import '../firebase_options.dart';
 import '../main.dart';
 import 'notification_service.dart';
+import 'dart:developer';
 
-/// Background message handler - must be a top-level function
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  final NotificationService backgroundNotificationService =
+      NotificationService();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  print('Handling background message: ${message.messageId}');
+  log('Handling background message: ${message.messageId}');
+
+  await backgroundNotificationService.initialize();
+  if (message.notification != null || message.data.isNotEmpty) {
+    final title =
+        message.notification?.title ?? message.data['title'] ?? 'Notification';
+    final body = message.notification?.body ?? message.data['body'] ?? '';
+    final data = message.data;
+
+    await backgroundNotificationService.sendFcmNotification(
+      title: title,
+      body: body,
+      data: data,
+    );
+  }
 }
 
 class PushNotificationService {
@@ -136,11 +152,13 @@ class PushNotificationService {
 
     // Show local notification when app is in foreground
     if (message.notification != null) {
-      _showLocalNotification(
-        title: message.notification!.title ?? 'Notification',
-        body: message.notification!.body ?? '',
-        data: message.data,
-      );
+      final title =
+          message.notification?.title ??
+          message.data['title'] ??
+          'Notification';
+      final body = message.notification?.body ?? message.data['body'] ?? '';
+
+      _showLocalNotification(title: title, body: body, data: message.data);
     }
   }
 
@@ -150,7 +168,7 @@ class PushNotificationService {
     print('  Data: ${message.data}');
 
     // Navigate based on message data
-    _handleNotificationNavigation(message.data);
+    handleNotificationNavigation(message.data);
   }
 
   /// Show local notification
@@ -176,7 +194,7 @@ class PushNotificationService {
   }
 
   /// Handle navigation based on notification data
-  void _handleNotificationNavigation(Map<String, dynamic> data) {
+  void handleNotificationNavigation(Map<String, dynamic> data) {
     // Extract navigation info from data
     final String? route = data['route'];
     final String? type = data['type'];

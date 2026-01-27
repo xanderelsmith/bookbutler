@@ -6,6 +6,8 @@ import 'package:share_plus/share_plus.dart';
 import '../providers/serverpod_provider.dart';
 import 'package:read_pdf_text/read_pdf_text.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import '../models/reading_snippet.dart';
+import '../providers/snippet_providers.dart';
 
 class ChatMessage {
   final String text;
@@ -20,6 +22,7 @@ class ChatMessage {
 }
 
 class AiChatScreen extends ConsumerStatefulWidget {
+  final String bookId;
   final String bookTitle;
   final String pageInfo;
   final String extractedText;
@@ -32,6 +35,7 @@ class AiChatScreen extends ConsumerStatefulWidget {
 
   const AiChatScreen({
     super.key,
+    required this.bookId,
     required this.extractedText,
     required this.bookTitle,
     required this.pageInfo,
@@ -147,12 +151,33 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     }
   }
 
-  void _saveSnippet(String text) {
-    // For now, we just show the snackbar as requested.
-    // This could later be expanded to save to a database or file.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Saved'), duration: Duration(seconds: 2)),
-    );
+  Future<void> _saveSnippet(String text) async {
+    try {
+      final snippetId = DateTime.now().millisecondsSinceEpoch.toString();
+      final snippet = ReadingSnippet(
+        id: snippetId,
+        bookId: widget.bookId,
+        bookTitle: widget.bookTitle,
+        text: text,
+        pageNumber: widget.currentPage ?? 1,
+        dateSaved: DateTime.now().toIso8601String(),
+      );
+
+      final success = await ref
+          .read(snippetsProvider.notifier)
+          .addSnippet(snippet);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? 'Saved Snippet' : 'Failed to save'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      log('Error saving snippet: $e');
+    }
   }
 
   @override
@@ -356,33 +381,9 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
               ),
             const SizedBox(height: 8),
             if (!message.isUser)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      Share.share(message.text);
-                    },
-                    child: Icon(
-                      Icons.share,
-                      size: 16,
-                      color: message.isUser
-                          ? Colors.white.withOpacity(0.7)
-                          : Colors.grey[500],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  GestureDetector(
-                    onTap: () => _saveSnippet(message.text),
-                    child: Icon(
-                      Icons.download,
-                      size: 16,
-                      color: message.isUser
-                          ? Colors.white.withOpacity(0.7)
-                          : Colors.grey[500],
-                    ),
-                  ),
-                ],
+              GestureDetector(
+                onTap: () => _saveSnippet(message.text),
+                child: Icon(Icons.download, size: 16, color: Colors.grey[500]),
               ),
           ],
         ),

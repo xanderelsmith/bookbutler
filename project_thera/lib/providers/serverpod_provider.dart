@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:project_thera_client/project_thera_client.dart';
 import '../services/serverpod_service.dart';
 
 final serverpodServiceProvider = Provider<ServerpodService>((ref) {
@@ -11,10 +12,10 @@ final serverpodClientProvider = FutureProvider<ServerpodService>((ref) async {
   return service;
 });
 
-final authUserProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
+final authUserProvider = FutureProvider<User?>((ref) async {
   final service = ref.watch(serverpodServiceProvider);
   await service.initialize();
-  return await service.getSignedInUser();
+  return await service.getCurrentUserProfile();
 });
 
 final isSignedInProvider = FutureProvider<bool>((ref) async {

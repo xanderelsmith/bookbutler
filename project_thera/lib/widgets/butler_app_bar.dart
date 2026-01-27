@@ -16,7 +16,8 @@ class ButlerAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      leading: leading ??
+      leading:
+          leading ??
           Padding(
             padding: const EdgeInsets.all(8),
             child: Container(
@@ -28,7 +29,11 @@ class ButlerAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+              child: const Icon(
+                Icons.auto_awesome,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
           ),
       title: Text(title),
@@ -39,5 +44,3 @@ class ButlerAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }
-
-

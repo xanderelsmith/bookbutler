@@ -13,6 +13,7 @@ import '../widgets/scanned_file_card.dart';
 import '../theme/app_theme.dart';
 import 'book_reader_screen.dart';
 import 'dart:developer';
+import 'package:pdfrx/pdfrx.dart';
 
 class AddBookScreen extends ConsumerStatefulWidget {
   const AddBookScreen({super.key});
@@ -201,16 +202,21 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
       final now = DateTime.now().toIso8601String();
       log('📝 Parsing book data - pages text: "${_pagesController.text}"');
 
-      int totalPages;
+      int totalPages = 0;
       try {
-        totalPages = 0;
-        log('✅ Pages parsed successfully: $totalPages');
-      } catch (e, stackTrace) {
-        log('❌ Error parsing pages: $e');
-        log('Stack trace: $stackTrace');
-        throw Exception(
-          'Invalid page number: ${_pagesController.text}. Please enter a valid number.',
-        );
+        if (_selectedFile!.extension.toLowerCase() == 'pdf') {
+          log('🔍 Extracting actual page count for PDF...');
+          final pdfDoc = await PdfDocument.openFile(_selectedFile!.effectivePath);
+          totalPages = pdfDoc.pages.length;
+          await pdfDoc.dispose();
+          log('✅ Actual PDF page count: $totalPages');
+        } else {
+          // For other formats, use manual entry if available
+          totalPages = int.tryParse(_pagesController.text) ?? 0;
+        }
+      } catch (e) {
+        log('⚠️ Could not extract page count, falling back to manual entry: $e');
+        totalPages = int.tryParse(_pagesController.text) ?? 0;
       }
 
       final bookId = DateTime.now().millisecondsSinceEpoch.toString();

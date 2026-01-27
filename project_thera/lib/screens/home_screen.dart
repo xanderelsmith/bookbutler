@@ -141,7 +141,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       });
     });
     return Scaffold(
-      appBar: ButlerAppBar(title: 'The Butler'),
+      appBar: ButlerAppBar(title: 'Book Butler'),
       body: booksAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(
