@@ -523,7 +523,7 @@ class NotificationService {
         id: 12,
         dateTime: scheduledDate,
         assetAudioPath: 'asset/alarm.mp3', // Make sure to add this asset
-        loopAudio: false,
+        loopAudio: true,
         vibrate: true,
 
         warningNotificationOnKill: true,

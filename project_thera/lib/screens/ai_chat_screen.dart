@@ -381,9 +381,33 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
               ),
             const SizedBox(height: 8),
             if (!message.isUser)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      Share.share(message.text);
+                    },
+                    child: Icon(
+                      Icons.share,
+                      size: 16,
+                      color: message.isUser
+                          ? Colors.white.withOpacity(0.7)
+                          : Colors.grey[500],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
               GestureDetector(
                 onTap: () => _saveSnippet(message.text),
-                child: Icon(Icons.download, size: 16, color: Colors.grey[500]),
+                    child: Icon(
+                      Icons.download,
+                      size: 16,
+                      color: message.isUser
+                          ? Colors.white.withOpacity(0.7)
+                          : Colors.grey[500],
+                    ),
+                  ),
+                ],
               ),
           ],
         ),
