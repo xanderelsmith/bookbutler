@@ -70,7 +70,7 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
   bool get _isDocx =>
       widget.book.pdfUrl?.toLowerCase().endsWith('.docx') ?? false;
   bool get _isTextBased => !_isPdf && !_isDocx; // Text only
-
+  late ValueKey valueKey;
   @override
   void initState() {
     // Initialize pdfrx controller
@@ -78,6 +78,7 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
       ..addListener(() {
         _currentPageNumber = _pdfController.pageNumber ?? 0;
       });
+    valueKey = ValueKey(widget.book.id);
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -637,6 +638,12 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: !_showControls
+          ? FloatingActionButton(
+              onPressed: _toggleControls,
+              child: const Icon(Icons.fullscreen),
+            )
+          : null,
       backgroundColor: Colors.white,
       body: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -653,6 +660,10 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
             children: [
               if (_showControls)
                 ReaderHeader(
+                  isFullscreen: !_showControls,
+                  onToggleFullscreen: () {
+                    _toggleControls();
+                  },
                   book: widget.book,
                   currentPage: _currentPageNumber,
                   totalPages: _totalPages,
@@ -686,257 +697,247 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
                   onSettings: () {},
                 ),
               Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    log('Tapped');
-                    _toggleControls();
-                  },
-                  behavior: HitTestBehavior
-                      .translucent, // ensure taps are caught even on empty space
-                  child: Container(
-                    width: double.infinity,
-                    height: double.infinity,
-                    color: _isPdf
-                        ? Colors.grey[50]
-                        : Colors.white, // White background for text
-                    child: _isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : Builder(
-                            builder: (context) {
-                              if (_isPdf) {
-                                return PdfViewer.file(
-                                  widget.book.pdfUrl ?? '',
-                                  controller: _pdfController,
-                                  params: PdfViewerParams(
-                                    backgroundColor: Theme.of(
-                                      context,
-                                    ).scaffoldBackgroundColor,
-                                    onPageChanged: (page) {
-                                      if (page != null &&
-                                          page != _currentPageNumber) {
-                                        if (mounted) {
-                                          setState(() {
-                                            _currentPageNumber = page;
-                                          });
-                                          _updateBookProgress(page);
-                                        }
-                                      }
-                                    },
-                                    customizeContextMenuItems: (params, items) {
-                                      items.addAll([
-                                        ContextMenuButtonItem(
-                                          label: 'Save Snippet',
-                                          onPressed: () {
-                                            params.dismissContextMenu();
-                                            params.textSelectionDelegate
-                                                .getSelectedText()
-                                                .then((text) {
-                                                  if (text.isNotEmpty) {
-                                                    _saveSnippet(text, null);
-                                                  }
-                                                });
-                                          },
-                                        ),
-                                        ContextMenuButtonItem(
-                                          label: 'Summarize',
-                                          onPressed: () {
-                                            params.dismissContextMenu();
-                                            _onSelectionAiAction(
-                                              params
-                                                      .textSelectionDelegate
-                                                      .hasSelectedText
-                                                  ? params.textSelectionDelegate
-                                                        .getSelectedText()
-                                                        .then((value) => value)
-                                                  : Future.value(''),
-                                              'Summarize this',
-                                            );
-                                          },
-                                        ),
-                                        ContextMenuButtonItem(
-                                          label: 'Explain',
-                                          onPressed: () {
-                                            params.dismissContextMenu();
-                                            _onSelectionAiAction(
-                                              params.textSelectionDelegate
-                                                  .getSelectedText()
-                                                  .then((value) => value),
-                                              'Explain this',
-                                            );
-                                          },
-                                        ),
-                                        ContextMenuButtonItem(
-                                          label: 'Ask AI',
-                                          onPressed: () {
-                                            params.dismissContextMenu();
-                                            _onSelectionAiAction(
-                                              params.textSelectionDelegate
-                                                  .getSelectedText()
-                                                  .then((value) => value),
-                                              null,
-                                            );
-                                          },
-                                        ),
-                                      ]);
-                                    },
-                                  ),
-                                );
-                              } else if (_isDocx) {
-                                return NotificationListener<ScrollNotification>(
-                                  onNotification: (scrollNotification) {
-                                    if (scrollNotification
-                                            .metrics
-                                            .maxScrollExtent >
-                                        0) {
-                                      // Estimate pages for Docx
-                                      // DocxViewer doesn't give us pages, so we estimate based on scroll similar to Text
-                                      if (_totalPages == 0) {
-                                        // Initial estimation if not set
-                                        // 1000px per page approx?
-                                        final estimated =
-                                            (scrollNotification
-                                                        .metrics
-                                                        .maxScrollExtent /
-                                                    800)
-                                                .ceil();
-                                        _handleTotalPagesUpdated(
-                                          estimated > 0 ? estimated : 1,
-                                        );
-                                      }
-
-                                      final double progress =
-                                          scrollNotification.metrics.pixels /
-                                          scrollNotification
-                                              .metrics
-                                              .maxScrollExtent;
-                                      final int newPage =
-                                          (progress * _totalPages).ceil().clamp(
-                                            1,
-                                            _totalPages,
-                                          );
-
-                                      if (newPage != _currentPageNumber) {
-                                        // Avoid too many setState calls
-                                        if (mounted) {
-                                          setState(() {
-                                            _currentPageNumber = newPage;
-                                          });
-                                          // Debounce progress update?
-                                          _updateBookProgress(newPage);
-                                        }
+                child: Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  color: _isPdf
+                      ? Colors.grey[50]
+                      : Colors.white, // White background for text
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : Builder(
+                          builder: (context) {
+                            if (_isPdf) {
+                              return PdfViewer.file(
+                                widget.book.pdfUrl ?? '',
+                                key: valueKey,
+                                controller: _pdfController,
+                                params: PdfViewerParams(
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).scaffoldBackgroundColor,
+                                  onPageChanged: (page) {
+                                    if (page != null &&
+                                        page != _currentPageNumber) {
+                                      if (mounted) {
+                                        setState(() {
+                                          _currentPageNumber = page;
+                                        });
+                                        _updateBookProgress(page);
                                       }
                                     }
-                                    return false;
                                   },
-                                  child: DocxView(
-                                    path: widget.book.pdfUrl ?? '',
-                                    config: DocxViewConfig(
-                                      enableSearch: true,
-                                      enableZoom: true,
-                                    ),
-                                    searchController: _docxSearchController,
-                                  ),
-                                );
-                              } else if (_isTextBased && _textContent != null) {
-                                return SingleChildScrollView(
-                                  controller: _scrollController,
-                                  padding: EdgeInsets.fromLTRB(
-                                    20,
-                                    _showControls ? 120 : 60,
-                                    20,
-                                    _showControls ? 100 : 60,
-                                  ),
-                                  child: SelectableText(
-                                    _textContent!,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      height: 1.5,
-                                      color: Colors.black87,
-                                    ),
-                                    contextMenuBuilder:
-                                        (context, editableTextState) {
-                                          final List<ContextMenuButtonItem>
-                                          buttonItems = editableTextState
-                                              .contextMenuButtonItems;
-                                          buttonItems.addAll([
-                                            ContextMenuButtonItem(
-                                              label: 'Summarize',
-                                              onPressed: () {
-                                                editableTextState.hideToolbar();
-                                                final String selectedText =
-                                                    _textContent!.substring(
-                                                      editableTextState
-                                                          .textEditingValue
-                                                          .selection
-                                                          .start,
-                                                      editableTextState
-                                                          .textEditingValue
-                                                          .selection
-                                                          .end,
-                                                    );
-                                                _onSelectionAiAction(
-                                                  selectedText,
-                                                  'Summarize this',
-                                                );
-                                              },
-                                            ),
-                                            ContextMenuButtonItem(
-                                              label: 'Explain',
-                                              onPressed: () {
-                                                editableTextState.hideToolbar();
-                                                final String selectedText =
-                                                    _textContent!.substring(
-                                                      editableTextState
-                                                          .textEditingValue
-                                                          .selection
-                                                          .start,
-                                                      editableTextState
-                                                          .textEditingValue
-                                                          .selection
-                                                          .end,
-                                                    );
-                                                _onSelectionAiAction(
-                                                  selectedText,
-                                                  'Explain this',
-                                                );
-                                              },
-                                            ),
-                                            ContextMenuButtonItem(
-                                              label: 'Ask AI',
-                                              onPressed: () {
-                                                editableTextState.hideToolbar();
-                                                final String selectedText =
-                                                    _textContent!.substring(
-                                                      editableTextState
-                                                          .textEditingValue
-                                                          .selection
-                                                          .start,
-                                                      editableTextState
-                                                          .textEditingValue
-                                                          .selection
-                                                          .end,
-                                                    );
-                                                _onSelectionAiAction(
-                                                  selectedText,
-                                                  null,
-                                                );
-                                              },
-                                            ),
-                                          ]);
-                                          return AdaptiveTextSelectionToolbar.buttonItems(
-                                            anchors: editableTextState
-                                                .contextMenuAnchors,
-                                            buttonItems: buttonItems,
+                                  customizeContextMenuItems: (params, items) {
+                                    items.addAll([
+                                      ContextMenuButtonItem(
+                                        label: 'Save Snippet',
+                                        onPressed: () {
+                                          params.dismissContextMenu();
+                                          params.textSelectionDelegate
+                                              .getSelectedText()
+                                              .then((text) {
+                                                if (text.isNotEmpty) {
+                                                  _saveSnippet(text, null);
+                                                }
+                                              });
+                                        },
+                                      ),
+                                      ContextMenuButtonItem(
+                                        label: 'Summarize',
+                                        onPressed: () {
+                                          params.dismissContextMenu();
+                                          _onSelectionAiAction(
+                                            params
+                                                    .textSelectionDelegate
+                                                    .hasSelectedText
+                                                ? params.textSelectionDelegate
+                                                      .getSelectedText()
+                                                      .then((value) => value)
+                                                : Future.value(''),
+                                            'Summarize this',
                                           );
                                         },
+                                      ),
+                                      ContextMenuButtonItem(
+                                        label: 'Explain',
+                                        onPressed: () {
+                                          params.dismissContextMenu();
+                                          _onSelectionAiAction(
+                                            params.textSelectionDelegate
+                                                .getSelectedText()
+                                                .then((value) => value),
+                                            'Explain this',
+                                          );
+                                        },
+                                      ),
+                                      ContextMenuButtonItem(
+                                        label: 'Ask AI',
+                                        onPressed: () {
+                                          params.dismissContextMenu();
+                                          _onSelectionAiAction(
+                                            params.textSelectionDelegate
+                                                .getSelectedText()
+                                                .then((value) => value),
+                                            null,
+                                          );
+                                        },
+                                      ),
+                                    ]);
+                                  },
+                                ),
+                              );
+                            } else if (_isDocx) {
+                              return NotificationListener<ScrollNotification>(
+                                onNotification: (scrollNotification) {
+                                  if (scrollNotification
+                                          .metrics
+                                          .maxScrollExtent >
+                                      0) {
+                                    // Estimate pages for Docx
+                                    // DocxViewer doesn't give us pages, so we estimate based on scroll similar to Text
+                                    if (_totalPages == 0) {
+                                      // Initial estimation if not set
+                                      // 1000px per page approx?
+                                      final estimated =
+                                          (scrollNotification
+                                                      .metrics
+                                                      .maxScrollExtent /
+                                                  800)
+                                              .ceil();
+                                      _handleTotalPagesUpdated(
+                                        estimated > 0 ? estimated : 1,
+                                      );
+                                    }
+
+                                    final double progress =
+                                        scrollNotification.metrics.pixels /
+                                        scrollNotification
+                                            .metrics
+                                            .maxScrollExtent;
+                                    final int newPage = (progress * _totalPages)
+                                        .ceil()
+                                        .clamp(1, _totalPages);
+
+                                    if (newPage != _currentPageNumber) {
+                                      // Avoid too many setState calls
+                                      if (mounted) {
+                                        setState(() {
+                                          _currentPageNumber = newPage;
+                                        });
+                                        // Debounce progress update?
+                                        _updateBookProgress(newPage);
+                                      }
+                                    }
+                                  }
+                                  return false;
+                                },
+                                child: DocxView(
+                                  path: widget.book.pdfUrl ?? '',
+                                  config: DocxViewConfig(
+                                    enableSearch: true,
+                                    enableZoom: true,
                                   ),
-                                );
-                              } else {
-                                return const Text('Failed to load content');
-                              }
-                            },
-                          ),
-                  ),
+                                  searchController: _docxSearchController,
+                                ),
+                              );
+                            } else if (_isTextBased && _textContent != null) {
+                              return SingleChildScrollView(
+                                controller: _scrollController,
+                                padding: EdgeInsets.fromLTRB(
+                                  20,
+                                  _showControls ? 120 : 60,
+                                  20,
+                                  _showControls ? 100 : 60,
+                                ),
+                                child: SelectableText(
+                                  _textContent!,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    height: 1.5,
+                                    color: Colors.black87,
+                                  ),
+                                  contextMenuBuilder: (context, editableTextState) {
+                                    final List<ContextMenuButtonItem>
+                                    buttonItems = editableTextState
+                                        .contextMenuButtonItems;
+                                    buttonItems.addAll([
+                                      ContextMenuButtonItem(
+                                        label: 'Summarize',
+                                        onPressed: () {
+                                          editableTextState.hideToolbar();
+                                          final String selectedText =
+                                              _textContent!.substring(
+                                                editableTextState
+                                                    .textEditingValue
+                                                    .selection
+                                                    .start,
+                                                editableTextState
+                                                    .textEditingValue
+                                                    .selection
+                                                    .end,
+                                              );
+                                          _onSelectionAiAction(
+                                            selectedText,
+                                            'Summarize this',
+                                          );
+                                        },
+                                      ),
+                                      ContextMenuButtonItem(
+                                        label: 'Explain',
+                                        onPressed: () {
+                                          editableTextState.hideToolbar();
+                                          final String selectedText =
+                                              _textContent!.substring(
+                                                editableTextState
+                                                    .textEditingValue
+                                                    .selection
+                                                    .start,
+                                                editableTextState
+                                                    .textEditingValue
+                                                    .selection
+                                                    .end,
+                                              );
+                                          _onSelectionAiAction(
+                                            selectedText,
+                                            'Explain this',
+                                          );
+                                        },
+                                      ),
+                                      ContextMenuButtonItem(
+                                        label: 'Ask AI',
+                                        onPressed: () {
+                                          editableTextState.hideToolbar();
+                                          final String selectedText =
+                                              _textContent!.substring(
+                                                editableTextState
+                                                    .textEditingValue
+                                                    .selection
+                                                    .start,
+                                                editableTextState
+                                                    .textEditingValue
+                                                    .selection
+                                                    .end,
+                                              );
+                                          _onSelectionAiAction(
+                                            selectedText,
+                                            null,
+                                          );
+                                        },
+                                      ),
+                                    ]);
+                                    return AdaptiveTextSelectionToolbar.buttonItems(
+                                      anchors:
+                                          editableTextState.contextMenuAnchors,
+                                      buttonItems: buttonItems,
+                                    );
+                                  },
+                                ),
+                              );
+                            } else {
+                              return const Text('Failed to load content');
+                            }
+                          },
+                        ),
                 ),
               ),
 

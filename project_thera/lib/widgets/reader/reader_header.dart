@@ -8,7 +8,9 @@ class ReaderHeader extends StatelessWidget {
   final int currentPage;
   final int totalPages;
   final int progress;
+  final VoidCallback onToggleFullscreen;
   final bool isDocx;
+  final bool isFullscreen;
   final bool isSearchActive;
   final TextEditingController searchTextController;
   final DocxSearchController docxSearchController;
@@ -24,7 +26,9 @@ class ReaderHeader extends StatelessWidget {
     required this.currentPage,
     required this.totalPages,
     required this.progress,
+    required this.onToggleFullscreen,
     required this.isDocx,
+    required this.isFullscreen,
     required this.isSearchActive,
     required this.searchTextController,
     required this.docxSearchController,
@@ -71,6 +75,14 @@ class ReaderHeader extends StatelessWidget {
                       IconButton(
                         icon: const Icon(Icons.settings_outlined),
                         onPressed: onSettings,
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          isFullscreen
+                              ? Icons.fullscreen_exit
+                              : Icons.fullscreen,
+                        ),
+                        onPressed: onToggleFullscreen,
                       ),
                     ],
                   ),
