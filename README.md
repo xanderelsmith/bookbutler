@@ -69,6 +69,11 @@ The backend architecture is built on Serverpod, exposing several logical endpoin
 4.  Run the server: `dart bin/main.dart`
 
 ### Running the Flutter App
+I added the build files here 
+- BookButler_app-release.apk
+- BookButler_v7a-release.apk
+
+  
 1.  Navigate to the app directory: `cd project_thera`
 2.  Install dependencies: `flutter pub get`
 3.  Launch the app: `flutter run`
