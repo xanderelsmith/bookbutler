@@ -23,7 +23,6 @@ class AiEndpoint extends Endpoint {
       GoogleProvider(apiKey: apiKey),
       chatModelName: 'gemini-2.5-flash-lite',
     );
-    //  "gemini-2.5-flash-lite"
     try {
       // Run the agent with the context and question
       final response = await agent.send(

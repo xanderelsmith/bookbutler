@@ -24,6 +24,7 @@ abstract class User implements _i1.SerializableModel {
     this.bio,
     this.createdAt,
     this.updatedAt,
+    this.email,
   });
 
   factory User({
@@ -34,6 +35,7 @@ abstract class User implements _i1.SerializableModel {
     String? bio,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? email,
   }) = _UserImpl;
 
   factory User.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -55,6 +57,7 @@ abstract class User implements _i1.SerializableModel {
       updatedAt: jsonSerialization['updatedAt'] == null
           ? null
           : _i1.DateTimeJsonExtension.fromJson(jsonSerialization['updatedAt']),
+      email: jsonSerialization['email'] as String?,
     );
   }
 
@@ -77,6 +80,8 @@ abstract class User implements _i1.SerializableModel {
 
   DateTime? updatedAt;
 
+  String? email;
+
   /// Returns a shallow copy of this [User]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -88,6 +93,7 @@ abstract class User implements _i1.SerializableModel {
     String? bio,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? email,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -100,6 +106,7 @@ abstract class User implements _i1.SerializableModel {
       if (bio != null) 'bio': bio,
       if (createdAt != null) 'createdAt': createdAt?.toJson(),
       if (updatedAt != null) 'updatedAt': updatedAt?.toJson(),
+      if (email != null) 'email': email,
     };
   }
 
@@ -120,6 +127,7 @@ class _UserImpl extends User {
     String? bio,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? email,
   }) : super._(
          id: id,
          authUserId: authUserId,
@@ -128,6 +136,7 @@ class _UserImpl extends User {
          bio: bio,
          createdAt: createdAt,
          updatedAt: updatedAt,
+         email: email,
        );
 
   /// Returns a shallow copy of this [User]
@@ -142,6 +151,7 @@ class _UserImpl extends User {
     Object? bio = _Undefined,
     Object? createdAt = _Undefined,
     Object? updatedAt = _Undefined,
+    Object? email = _Undefined,
   }) {
     return User(
       id: id is int? ? id : this.id,
@@ -153,6 +163,7 @@ class _UserImpl extends User {
       bio: bio is String? ? bio : this.bio,
       createdAt: createdAt is DateTime? ? createdAt : this.createdAt,
       updatedAt: updatedAt is DateTime? ? updatedAt : this.updatedAt,
+      email: email is String? ? email : this.email,
     );
   }
 }

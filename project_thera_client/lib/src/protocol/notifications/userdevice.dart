@@ -11,8 +11,7 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _i1;
-import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
-    as _i2;
+import '../user/user.dart' as _i2;
 import 'package:project_thera_client/src/protocol/protocol.dart' as _i3;
 
 /// Device token model for storing FCM/APNs tokens
@@ -20,8 +19,8 @@ import 'package:project_thera_client/src/protocol/protocol.dart' as _i3;
 abstract class UserDevice implements _i1.SerializableModel {
   UserDevice._({
     this.id,
-    required this.authUserId,
-    this.authUser,
+    required this.userId,
+    this.user,
     required this.deviceToken,
     required this.platform,
     required this.isActive,
@@ -31,8 +30,8 @@ abstract class UserDevice implements _i1.SerializableModel {
 
   factory UserDevice({
     int? id,
-    required _i1.UuidValue authUserId,
-    _i2.AuthUser? authUser,
+    required int userId,
+    _i2.User? user,
     required String deviceToken,
     required String platform,
     required bool isActive,
@@ -43,14 +42,10 @@ abstract class UserDevice implements _i1.SerializableModel {
   factory UserDevice.fromJson(Map<String, dynamic> jsonSerialization) {
     return UserDevice(
       id: jsonSerialization['id'] as int?,
-      authUserId: _i1.UuidValueJsonExtension.fromJson(
-        jsonSerialization['authUserId'],
-      ),
-      authUser: jsonSerialization['authUser'] == null
+      userId: jsonSerialization['userId'] as int,
+      user: jsonSerialization['user'] == null
           ? null
-          : _i3.Protocol().deserialize<_i2.AuthUser>(
-              jsonSerialization['authUser'],
-            ),
+          : _i3.Protocol().deserialize<_i2.User>(jsonSerialization['user']),
       deviceToken: jsonSerialization['deviceToken'] as String,
       platform: jsonSerialization['platform'] as String,
       isActive: jsonSerialization['isActive'] as bool,
@@ -68,11 +63,10 @@ abstract class UserDevice implements _i1.SerializableModel {
   /// the id will be null.
   int? id;
 
-  _i1.UuidValue authUserId;
+  int userId;
 
-  /// The [AuthUser] this device belongs to
-  /// This creates a proper database relation with cascade delete
-  _i2.AuthUser? authUser;
+  /// The [User] profile this device belongs to
+  _i2.User? user;
 
   /// FCM token (Android) or APNs token (iOS)
   /// Now properly persisted in database (removed !persist)
@@ -95,8 +89,8 @@ abstract class UserDevice implements _i1.SerializableModel {
   @_i1.useResult
   UserDevice copyWith({
     int? id,
-    _i1.UuidValue? authUserId,
-    _i2.AuthUser? authUser,
+    int? userId,
+    _i2.User? user,
     String? deviceToken,
     String? platform,
     bool? isActive,
@@ -108,8 +102,8 @@ abstract class UserDevice implements _i1.SerializableModel {
     return {
       '__className__': 'UserDevice',
       if (id != null) 'id': id,
-      'authUserId': authUserId.toJson(),
-      if (authUser != null) 'authUser': authUser?.toJson(),
+      'userId': userId,
+      if (user != null) 'user': user?.toJson(),
       'deviceToken': deviceToken,
       'platform': platform,
       'isActive': isActive,
@@ -129,8 +123,8 @@ class _Undefined {}
 class _UserDeviceImpl extends UserDevice {
   _UserDeviceImpl({
     int? id,
-    required _i1.UuidValue authUserId,
-    _i2.AuthUser? authUser,
+    required int userId,
+    _i2.User? user,
     required String deviceToken,
     required String platform,
     required bool isActive,
@@ -138,8 +132,8 @@ class _UserDeviceImpl extends UserDevice {
     DateTime? updatedAt,
   }) : super._(
          id: id,
-         authUserId: authUserId,
-         authUser: authUser,
+         userId: userId,
+         user: user,
          deviceToken: deviceToken,
          platform: platform,
          isActive: isActive,
@@ -153,8 +147,8 @@ class _UserDeviceImpl extends UserDevice {
   @override
   UserDevice copyWith({
     Object? id = _Undefined,
-    _i1.UuidValue? authUserId,
-    Object? authUser = _Undefined,
+    int? userId,
+    Object? user = _Undefined,
     String? deviceToken,
     String? platform,
     bool? isActive,
@@ -163,10 +157,8 @@ class _UserDeviceImpl extends UserDevice {
   }) {
     return UserDevice(
       id: id is int? ? id : this.id,
-      authUserId: authUserId ?? this.authUserId,
-      authUser: authUser is _i2.AuthUser?
-          ? authUser
-          : this.authUser?.copyWith(),
+      userId: userId ?? this.userId,
+      user: user is _i2.User? ? user : this.user?.copyWith(),
       deviceToken: deviceToken ?? this.deviceToken,
       platform: platform ?? this.platform,
       isActive: isActive ?? this.isActive,

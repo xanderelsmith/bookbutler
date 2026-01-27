@@ -28,8 +28,15 @@ class UserEndpoint extends Endpoint {
     final authInfo = session.authenticated;
     developer.log('updateProfile authInfo: $authInfo');
     if (authInfo == null) {
-      developer.log('User must be authenticated');
-      throw Exception('User must be authenticated');
+      session.log(
+        'UpdateProfile: Not authenticated. Returning empty user.',
+        level: LogLevel.warning,
+      );
+      return User(
+        authUserId: UuidValue.fromString(
+          '00000000-0000-0000-0000-000000000000',
+        ),
+      );
     }
 
     final authUserIdString = authInfo.authUserId;

@@ -42,7 +42,7 @@ class BooksNotifier extends StateNotifier<AsyncValue<List<Book>>> {
       if (success) {
         await loadBooks();
         // Update home widget when new book is added
-        await _updateHomeWidget();
+        await updateHomeWidget();
       }
       return success;
     } catch (e) {
@@ -56,7 +56,7 @@ class BooksNotifier extends StateNotifier<AsyncValue<List<Book>>> {
       if (success) {
         await loadBooks();
         // Update home widget when book progress changes
-        await _updateHomeWidget();
+        await updateHomeWidget();
       }
       return success;
     } catch (e) {
@@ -64,7 +64,7 @@ class BooksNotifier extends StateNotifier<AsyncValue<List<Book>>> {
     }
   }
 
-  Future<void> _updateHomeWidget() async {
+  Future<void> updateHomeWidget() async {
     try {
       await _homeWidgetService.initialize();
       final enabled = await _homeWidgetService.isEnabled();

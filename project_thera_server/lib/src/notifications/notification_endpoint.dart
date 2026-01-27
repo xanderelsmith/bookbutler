@@ -21,53 +21,83 @@ class NotificationEndpoint extends Endpoint {
     String deviceToken,
     String platform,
   ) async {
-    final authInfo = session.authenticated;
-    if (authInfo == null) {
-      throw Exception('User must be authenticated');
-    }
+    try {
+      final authInfo = session.authenticated;
+      if (authInfo == null) {
+        session.log('RegisterDeviceToken: Not authenticated. Skipping.');
+        return;
+      }
 
-    final authUserId = authInfo.authUserId;
+      final authUserId = authInfo.authUserId;
+      session.log('Registering device for authUserId: $authUserId');
 
-    // Check if this device token already exists
-    var existingDevice = await UserDevice.db.findFirstRow(
-      session,
-      where: (d) => d.deviceToken.equals(deviceToken),
-    );
-
-    final now = DateTime.now().toUtc();
-
-    if (existingDevice == null) {
-      // Create new device record
-      final device = UserDevice(
-        authUserId: authUserId,
-        deviceToken: deviceToken,
-        platform: platform,
-        isActive: true,
-        createdAt: now,
-        updatedAt: now,
+      // 1. Find the User row in our custom user table
+      final user = await User.db.findFirstRow(
+        session,
+        where: (u) => u.authUserId.equals(authUserId),
       );
 
-      await UserDevice.db.insertRow(session, device);
+      if (user == null) {
+        session.log(
+          'RegisterDeviceToken ERROR: User profile not found in database for authUserId $authUserId. User must exist before registering a device.',
+          level: LogLevel.warning,
+        );
+        return;
+      }
+
+      final userId = user.id;
+      if (userId == null) {
+        session.log('RegisterDeviceToken ERROR: User record has null ID');
+        return;
+      }
 
       session.log(
-        'Registered new device token for user $authUserId',
-        level: LogLevel.info,
-      );
-    } else {
-      // Update existing device record
-      existingDevice = existingDevice.copyWith(
-        authUserId: authUserId,
-        platform: platform,
-        isActive: true,
-        updatedAt: now,
+        'User found with database ID: $userId. Checking for existing device token.',
       );
 
-      await UserDevice.db.updateRow(session, existingDevice);
+      // 2. Check if this device token is already registered to ANY user
+      var device = await UserDevice.db.findFirstRow(
+        session,
+        where: (d) => d.deviceToken.equals(deviceToken),
+      );
 
+      final now = DateTime.now().toUtc();
+
+      if (device == null) {
+        // Create new
+        session.log('Device token not found. Creating new UserDevice record.');
+        device = UserDevice(
+          userId: userId,
+          deviceToken: deviceToken,
+          platform: platform,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        );
+        await UserDevice.db.insertRow(session, device);
+        session.log('Successfully created new UserDevice record.');
+      } else {
+        // Update existing (even if it was assigned to a different user, we take ownership)
+        session.log(
+          'Device token already exists (ID: ${device.id}, Current Owner: ${device.userId}). Updating/Taking ownership.',
+        );
+        device = device.copyWith(
+          userId: userId,
+          platform: platform,
+          isActive: true,
+          updatedAt: now,
+        );
+        await UserDevice.db.updateRow(session, device);
+        session.log('Successfully updated UserDevice record.');
+      }
+    } catch (e, stackTrace) {
       session.log(
-        'Updated device token for user $authUserId',
-        level: LogLevel.info,
+        'CRITICAL ERROR in registerDeviceToken: $e',
+        level: LogLevel.error,
+        stackTrace: stackTrace,
       );
+      // We rethrow so the 500 persists until we see the specific error in logs
+      rethrow;
     }
   }
 
@@ -76,9 +106,10 @@ class NotificationEndpoint extends Endpoint {
     Session session,
     String deviceToken,
   ) async {
-    final authInfo = await session.authenticated;
+    final authInfo = session.authenticated;
     if (authInfo == null) {
-      throw Exception('User must be authenticated');
+      session.log('Not authenticated. Skipping.');
+      return;
     }
 
     final device = await UserDevice.db.findFirstRow(
@@ -111,7 +142,7 @@ class NotificationEndpoint extends Endpoint {
   /// Returns true if notification was sent to at least one device
   Future<bool> sendNotificationToUser(
     Session session,
-    UuidValue userId,
+    int userId,
     String title,
     String body, {
     Map<String, dynamic>? data,
@@ -119,7 +150,7 @@ class NotificationEndpoint extends Endpoint {
     // Get all active device tokens for this user
     final devices = await UserDevice.db.find(
       session,
-      where: (t) => t.authUserId.equals(userId) & t.isActive.equals(true),
+      where: (t) => t.userId.equals(userId) & t.isActive.equals(true),
     );
 
     if (devices.isEmpty) {
@@ -164,12 +195,22 @@ class NotificationEndpoint extends Endpoint {
   }) async {
     final authInfo = session.authenticated;
     if (authInfo == null) {
-      throw Exception('User must be authenticated');
+      session.log('Not authenticated. Skipping.');
+      return false;
     }
+
+    final authUserId = authInfo.authUserId;
+
+    final user = await User.db.findFirstRow(
+      session,
+      where: (u) => u.authUserId.equals(authUserId),
+    );
+
+    if (user == null || user.id == null) return false;
 
     return await sendNotificationToUser(
       session,
-      authInfo.authUserId,
+      user.id!,
       title,
       body,
       data: data,
@@ -186,7 +227,7 @@ class NotificationEndpoint extends Endpoint {
   /// Returns a map of userId -> success status
   Future<Map<String, bool>> sendNotificationToMultipleUsers(
     Session session,
-    List<UuidValue> userIds,
+    List<int> userIds,
     String title,
     String body, {
     Map<String, dynamic>? data,
@@ -201,7 +242,7 @@ class NotificationEndpoint extends Endpoint {
         body,
         data: data,
       );
-      results[userId.uuid] = success;
+      results[userId.toString()] = success;
     }
 
     return results;
@@ -231,15 +272,21 @@ class NotificationEndpoint extends Endpoint {
 
   /// Get all active devices for the current user
   Future<List<UserDevice>> getMyDevices(Session session) async {
-    final authInfo = await session.authenticated;
+    final authInfo = session.authenticated;
     if (authInfo == null) {
-      throw Exception('User must be authenticated');
+      return [];
     }
+
+    final user = await User.db.findFirstRow(
+      session,
+      where: (u) => u.authUserId.equals(authInfo.authUserId),
+    );
+
+    if (user == null || user.id == null) return [];
 
     return await UserDevice.db.find(
       session,
-      where: (t) =>
-          t.authUserId.equals(authInfo.authUserId) & t.isActive.equals(true),
+      where: (t) => t.userId.equals(user.id!) & t.isActive.equals(true),
     );
   }
 
@@ -261,6 +308,42 @@ class NotificationEndpoint extends Endpoint {
       title,
       body,
       data: data,
+    );
+  }
+
+  /// Send notification when a user starts reading a book
+  ///
+  /// [bookTitle] - The title of the book being started
+  /// Sends to the 'all_users' topic to notify all users
+  Future<bool> sendReadingStartedNotification(
+    Session session,
+    String bookTitle,
+  ) async {
+    final authInfo = session.authenticated;
+    if (authInfo == null) {
+      session.log('Not authenticated. Skipping.');
+      return false;
+    }
+
+    // Get the user's name
+    final user = await User.db.findFirstRow(
+      session,
+      where: (u) => u.authUserId.equals(authInfo.authUserId),
+    );
+
+    final userName = user?.username ?? 'Someone';
+
+    // Send notification to all users
+    return await sendNotificationToTopic(
+      session,
+      'all_users',
+      '📚 New Reader Alert!',
+      '$userName just started reading "$bookTitle"',
+      // data: {
+      //   'type': 'reading_started',
+      //   'bookTitle': bookTitle,
+      //   'userName': userName,
+      // },
     );
   }
 

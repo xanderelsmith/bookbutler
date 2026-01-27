@@ -115,9 +115,8 @@ class Protocol extends _i1.SerializationManager {
           )
           as T;
     }
-    if (t == List<_i1.UuidValue>) {
-      return (data as List).map((e) => deserialize<_i1.UuidValue>(e)).toList()
-          as T;
+    if (t == List<int>) {
+      return (data as List).map((e) => deserialize<int>(e)).toList() as T;
     }
     if (t == List<_i7.UserDevice>) {
       return (data as List).map((e) => deserialize<_i7.UserDevice>(e)).toList()

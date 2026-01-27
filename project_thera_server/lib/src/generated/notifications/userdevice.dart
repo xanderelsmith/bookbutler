@@ -12,8 +12,7 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod/serverpod.dart' as _i1;
-import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
-    as _i2;
+import '../user/user.dart' as _i2;
 import 'package:project_thera_server/src/generated/protocol.dart' as _i3;
 
 /// Device token model for storing FCM/APNs tokens
@@ -22,8 +21,8 @@ abstract class UserDevice
     implements _i1.TableRow<int?>, _i1.ProtocolSerialization {
   UserDevice._({
     this.id,
-    required this.authUserId,
-    this.authUser,
+    required this.userId,
+    this.user,
     required this.deviceToken,
     required this.platform,
     required this.isActive,
@@ -33,8 +32,8 @@ abstract class UserDevice
 
   factory UserDevice({
     int? id,
-    required _i1.UuidValue authUserId,
-    _i2.AuthUser? authUser,
+    required int userId,
+    _i2.User? user,
     required String deviceToken,
     required String platform,
     required bool isActive,
@@ -45,14 +44,10 @@ abstract class UserDevice
   factory UserDevice.fromJson(Map<String, dynamic> jsonSerialization) {
     return UserDevice(
       id: jsonSerialization['id'] as int?,
-      authUserId: _i1.UuidValueJsonExtension.fromJson(
-        jsonSerialization['authUserId'],
-      ),
-      authUser: jsonSerialization['authUser'] == null
+      userId: jsonSerialization['userId'] as int,
+      user: jsonSerialization['user'] == null
           ? null
-          : _i3.Protocol().deserialize<_i2.AuthUser>(
-              jsonSerialization['authUser'],
-            ),
+          : _i3.Protocol().deserialize<_i2.User>(jsonSerialization['user']),
       deviceToken: jsonSerialization['deviceToken'] as String,
       platform: jsonSerialization['platform'] as String,
       isActive: jsonSerialization['isActive'] as bool,
@@ -72,11 +67,10 @@ abstract class UserDevice
   @override
   int? id;
 
-  _i1.UuidValue authUserId;
+  int userId;
 
-  /// The [AuthUser] this device belongs to
-  /// This creates a proper database relation with cascade delete
-  _i2.AuthUser? authUser;
+  /// The [User] profile this device belongs to
+  _i2.User? user;
 
   /// FCM token (Android) or APNs token (iOS)
   /// Now properly persisted in database (removed !persist)
@@ -102,8 +96,8 @@ abstract class UserDevice
   @_i1.useResult
   UserDevice copyWith({
     int? id,
-    _i1.UuidValue? authUserId,
-    _i2.AuthUser? authUser,
+    int? userId,
+    _i2.User? user,
     String? deviceToken,
     String? platform,
     bool? isActive,
@@ -115,8 +109,8 @@ abstract class UserDevice
     return {
       '__className__': 'UserDevice',
       if (id != null) 'id': id,
-      'authUserId': authUserId.toJson(),
-      if (authUser != null) 'authUser': authUser?.toJson(),
+      'userId': userId,
+      if (user != null) 'user': user?.toJson(),
       'deviceToken': deviceToken,
       'platform': platform,
       'isActive': isActive,
@@ -130,8 +124,8 @@ abstract class UserDevice
     return {
       '__className__': 'UserDevice',
       if (id != null) 'id': id,
-      'authUserId': authUserId.toJson(),
-      if (authUser != null) 'authUser': authUser?.toJsonForProtocol(),
+      'userId': userId,
+      if (user != null) 'user': user?.toJsonForProtocol(),
       'deviceToken': deviceToken,
       'platform': platform,
       'isActive': isActive,
@@ -140,8 +134,8 @@ abstract class UserDevice
     };
   }
 
-  static UserDeviceInclude include({_i2.AuthUserInclude? authUser}) {
-    return UserDeviceInclude._(authUser: authUser);
+  static UserDeviceInclude include({_i2.UserInclude? user}) {
+    return UserDeviceInclude._(user: user);
   }
 
   static UserDeviceIncludeList includeList({
@@ -175,8 +169,8 @@ class _Undefined {}
 class _UserDeviceImpl extends UserDevice {
   _UserDeviceImpl({
     int? id,
-    required _i1.UuidValue authUserId,
-    _i2.AuthUser? authUser,
+    required int userId,
+    _i2.User? user,
     required String deviceToken,
     required String platform,
     required bool isActive,
@@ -184,8 +178,8 @@ class _UserDeviceImpl extends UserDevice {
     DateTime? updatedAt,
   }) : super._(
          id: id,
-         authUserId: authUserId,
-         authUser: authUser,
+         userId: userId,
+         user: user,
          deviceToken: deviceToken,
          platform: platform,
          isActive: isActive,
@@ -199,8 +193,8 @@ class _UserDeviceImpl extends UserDevice {
   @override
   UserDevice copyWith({
     Object? id = _Undefined,
-    _i1.UuidValue? authUserId,
-    Object? authUser = _Undefined,
+    int? userId,
+    Object? user = _Undefined,
     String? deviceToken,
     String? platform,
     bool? isActive,
@@ -209,10 +203,8 @@ class _UserDeviceImpl extends UserDevice {
   }) {
     return UserDevice(
       id: id is int? ? id : this.id,
-      authUserId: authUserId ?? this.authUserId,
-      authUser: authUser is _i2.AuthUser?
-          ? authUser
-          : this.authUser?.copyWith(),
+      userId: userId ?? this.userId,
+      user: user is _i2.User? ? user : this.user?.copyWith(),
       deviceToken: deviceToken ?? this.deviceToken,
       platform: platform ?? this.platform,
       isActive: isActive ?? this.isActive,
@@ -225,10 +217,8 @@ class _UserDeviceImpl extends UserDevice {
 class UserDeviceUpdateTable extends _i1.UpdateTable<UserDeviceTable> {
   UserDeviceUpdateTable(super.table);
 
-  _i1.ColumnValue<_i1.UuidValue, _i1.UuidValue> authUserId(
-    _i1.UuidValue value,
-  ) => _i1.ColumnValue(
-    table.authUserId,
+  _i1.ColumnValue<int, int> userId(int value) => _i1.ColumnValue(
+    table.userId,
     value,
   );
 
@@ -263,8 +253,8 @@ class UserDeviceUpdateTable extends _i1.UpdateTable<UserDeviceTable> {
 class UserDeviceTable extends _i1.Table<int?> {
   UserDeviceTable({super.tableRelation}) : super(tableName: 'user_device') {
     updateTable = UserDeviceUpdateTable(this);
-    authUserId = _i1.ColumnUuid(
-      'authUserId',
+    userId = _i1.ColumnInt(
+      'userId',
       this,
     );
     deviceToken = _i1.ColumnString(
@@ -291,11 +281,10 @@ class UserDeviceTable extends _i1.Table<int?> {
 
   late final UserDeviceUpdateTable updateTable;
 
-  late final _i1.ColumnUuid authUserId;
+  late final _i1.ColumnInt userId;
 
-  /// The [AuthUser] this device belongs to
-  /// This creates a proper database relation with cascade delete
-  _i2.AuthUserTable? _authUser;
+  /// The [User] profile this device belongs to
+  _i2.UserTable? _user;
 
   /// FCM token (Android) or APNs token (iOS)
   /// Now properly persisted in database (removed !persist)
@@ -313,23 +302,23 @@ class UserDeviceTable extends _i1.Table<int?> {
   /// When the token was last updated
   late final _i1.ColumnDateTime updatedAt;
 
-  _i2.AuthUserTable get authUser {
-    if (_authUser != null) return _authUser!;
-    _authUser = _i1.createRelationTable(
-      relationFieldName: 'authUser',
-      field: UserDevice.t.authUserId,
-      foreignField: _i2.AuthUser.t.id,
+  _i2.UserTable get user {
+    if (_user != null) return _user!;
+    _user = _i1.createRelationTable(
+      relationFieldName: 'user',
+      field: UserDevice.t.userId,
+      foreignField: _i2.User.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i2.AuthUserTable(tableRelation: foreignTableRelation),
+          _i2.UserTable(tableRelation: foreignTableRelation),
     );
-    return _authUser!;
+    return _user!;
   }
 
   @override
   List<_i1.Column> get columns => [
     id,
-    authUserId,
+    userId,
     deviceToken,
     platform,
     isActive,
@@ -339,22 +328,22 @@ class UserDeviceTable extends _i1.Table<int?> {
 
   @override
   _i1.Table? getRelationTable(String relationField) {
-    if (relationField == 'authUser') {
-      return authUser;
+    if (relationField == 'user') {
+      return user;
     }
     return null;
   }
 }
 
 class UserDeviceInclude extends _i1.IncludeObject {
-  UserDeviceInclude._({_i2.AuthUserInclude? authUser}) {
-    _authUser = authUser;
+  UserDeviceInclude._({_i2.UserInclude? user}) {
+    _user = user;
   }
 
-  _i2.AuthUserInclude? _authUser;
+  _i2.UserInclude? _user;
 
   @override
-  Map<String, _i1.Include?> get includes => {'authUser': _authUser};
+  Map<String, _i1.Include?> get includes => {'user': _user};
 
   @override
   _i1.Table<int?> get table => UserDevice.t;
@@ -644,25 +633,25 @@ class UserDeviceRepository {
 class UserDeviceAttachRowRepository {
   const UserDeviceAttachRowRepository._();
 
-  /// Creates a relation between the given [UserDevice] and [AuthUser]
-  /// by setting the [UserDevice]'s foreign key `authUserId` to refer to the [AuthUser].
-  Future<void> authUser(
+  /// Creates a relation between the given [UserDevice] and [User]
+  /// by setting the [UserDevice]'s foreign key `userId` to refer to the [User].
+  Future<void> user(
     _i1.Session session,
     UserDevice userDevice,
-    _i2.AuthUser authUser, {
+    _i2.User user, {
     _i1.Transaction? transaction,
   }) async {
     if (userDevice.id == null) {
       throw ArgumentError.notNull('userDevice.id');
     }
-    if (authUser.id == null) {
-      throw ArgumentError.notNull('authUser.id');
+    if (user.id == null) {
+      throw ArgumentError.notNull('user.id');
     }
 
-    var $userDevice = userDevice.copyWith(authUserId: authUser.id);
+    var $userDevice = userDevice.copyWith(userId: user.id);
     await session.db.updateRow<UserDevice>(
       $userDevice,
-      columns: [UserDevice.t.authUserId],
+      columns: [UserDevice.t.userId],
       transaction: transaction,
     );
   }

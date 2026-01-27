@@ -72,18 +72,20 @@ class LeaderboardService {
         include: LeaderboardEntry.include(user: User.include()),
       ))!;
 
-      // Send notification to all users about the update
-      // We do this asynchronously to not block the response
+      developer.log(
+        '📊 [LeaderboardService] upsertEntry completed successfully. Entry ID: ${savedEntry.id}, Points: ${savedEntry.points}',
+      );
+
       unawaited(
         FCMService.instance.sendNotificationToTopic(
           session: session,
           topic: 'all_users',
-          title: 'Leaderboard Update',
-          body: '${finalName} just reached $points points with $books books!',
-          data: {
-            'type': 'leaderboard',
-            'entryId': savedEntry.id.toString(),
-          },
+          title: ' 🎉 Leaderboard Update',
+          body: '$finalName just reached $points points with $books books!',
+          // data: {
+          //   'type': 'leaderboard',
+          //   'entryId': savedEntry.id.toString(),
+          // },
         ),
       );
 

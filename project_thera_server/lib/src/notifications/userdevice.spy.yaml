@@ -5,9 +5,8 @@ class: UserDevice
 table: user_device
 
 fields:
-  ### The [AuthUser] this device belongs to
-  ### This creates a proper database relation with cascade delete
-  authUser: module:serverpod_auth_core:AuthUser?, relation(onDelete=Cascade)
+  ### The [User] profile this device belongs to
+  user: User?, relation(onDelete=Cascade)
   
   ### FCM token (Android) or APNs token (iOS)
   ### Now properly persisted in database (removed !persist)
@@ -27,8 +26,8 @@ fields:
 
 indexes:
   # Index on authUserId (auto-generated from authUser relation)
-  user_device_auth_id_idx:
-    fields: authUserId
+  user_device_user_id_idx:
+    fields: userId
   # Unique index on device token
   user_device_token_idx:
     fields: deviceToken

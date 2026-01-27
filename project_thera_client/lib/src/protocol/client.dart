@@ -26,6 +26,27 @@ import 'package:project_thera_client/src/protocol/user/user.dart' as _i8;
 import 'package:serverpod_auth_client/serverpod_auth_client.dart' as _i9;
 import 'protocol.dart' as _i10;
 
+/// {@category Endpoint}
+class EndpointAi extends _i1.EndpointRef {
+  EndpointAi(_i1.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'ai';
+
+  /// Asks the AI a question about a specific page content.
+  _i2.Future<String> askAboutPage(
+    String pageContent,
+    String userQuestion,
+  ) => caller.callServerEndpoint<String>(
+    'ai',
+    'askAboutPage',
+    {
+      'pageContent': pageContent,
+      'userQuestion': userQuestion,
+    },
+  );
+}
+
 /// Custom endpoint for direct account creation without email verification.
 /// {@category Endpoint}
 class EndpointAuth extends _i1.EndpointRef {
@@ -59,25 +80,18 @@ class EndpointEmailIdp extends _i3.EndpointEmailIdpBase {
   @override
   String get name => 'emailIdp';
 
-  /// Logs in the user and returns a new session.
-  ///
-  /// Throws an [EmailAccountLoginException] in case of errors, with reason:
-  /// - [EmailAccountLoginExceptionReason.invalidCredentials] if the email or
-  ///   password is incorrect.
-  /// - [EmailAccountLoginExceptionReason.tooManyAttempts] if there have been
-  ///   too many failed login attempts.
-  ///
-  /// Throws an [AuthUserBlockedException] if the auth user is blocked.
   @override
   _i2.Future<_i4.AuthSuccess> login({
     required String email,
     required String password,
+    required bool rememberMe,
   }) => caller.callServerEndpoint<_i4.AuthSuccess>(
     'emailIdp',
     'login',
     {
       'email': email,
       'password': password,
+      'rememberMe': rememberMe,
     },
   );
 
@@ -420,7 +434,7 @@ class EndpointNotification extends _i1.EndpointRef {
   ///
   /// Returns true if notification was sent to at least one device
   _i2.Future<bool> sendNotificationToUser(
-    _i1.UuidValue userId,
+    int userId,
     String title,
     String body, {
     Map<String, dynamic>? data,
@@ -459,7 +473,7 @@ class EndpointNotification extends _i1.EndpointRef {
   ///
   /// Returns a map of userId -> success status
   _i2.Future<Map<String, bool>> sendNotificationToMultipleUsers(
-    List<_i1.UuidValue> userIds,
+    List<int> userIds,
     String title,
     String body, {
     Map<String, dynamic>? data,
@@ -502,6 +516,36 @@ class EndpointNotification extends _i1.EndpointRef {
         'notification',
         'getMyDevices',
         {},
+      );
+
+  /// Send notification to all users
+  ///
+  /// [title] - Notification title
+  /// [body] - Notification body
+  /// [data] - Optional custom data payload
+  _i2.Future<bool> sendNotificationToAllUsers(
+    String title,
+    String body, {
+    Map<String, dynamic>? data,
+  }) => caller.callServerEndpoint<bool>(
+    'notification',
+    'sendNotificationToAllUsers',
+    {
+      'title': title,
+      'body': body,
+      'data': data,
+    },
+  );
+
+  /// Send notification when a user starts reading a book
+  ///
+  /// [bookTitle] - The title of the book being started
+  /// Sends to the 'all_users' topic to notify all users
+  _i2.Future<bool> sendReadingStartedNotification(String bookTitle) =>
+      caller.callServerEndpoint<bool>(
+        'notification',
+        'sendReadingStartedNotification',
+        {'bookTitle': bookTitle},
       );
 
   /// Clean up inactive or old device tokens
@@ -585,6 +629,7 @@ class Client extends _i1.ServerpodClientShared {
          disconnectStreamsOnLostInternetConnection:
              disconnectStreamsOnLostInternetConnection,
        ) {
+    ai = EndpointAi(this);
     auth = EndpointAuth(this);
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
@@ -594,6 +639,8 @@ class Client extends _i1.ServerpodClientShared {
     user = EndpointUser(this);
     modules = Modules(this);
   }
+
+  late final EndpointAi ai;
 
   late final EndpointAuth auth;
 
@@ -613,6 +660,7 @@ class Client extends _i1.ServerpodClientShared {
 
   @override
   Map<String, _i1.EndpointRef> get endpointRefLookup => {
+    'ai': ai,
     'auth': auth,
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,

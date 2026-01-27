@@ -236,10 +236,10 @@ class Protocol extends _i1.SerializationManagerServer {
           columnDefault: 'nextval(\'user_device_id_seq\'::regclass)',
         ),
         _i2.ColumnDefinition(
-          name: 'authUserId',
-          columnType: _i2.ColumnType.uuid,
+          name: 'userId',
+          columnType: _i2.ColumnType.bigint,
           isNullable: false,
-          dartType: 'UuidValue',
+          dartType: 'int',
         ),
         _i2.ColumnDefinition(
           name: 'deviceToken',
@@ -275,8 +275,8 @@ class Protocol extends _i1.SerializationManagerServer {
       foreignKeys: [
         _i2.ForeignKeyDefinition(
           constraintName: 'user_device_fk_0',
-          columns: ['authUserId'],
-          referenceTable: 'serverpod_auth_core_user',
+          columns: ['userId'],
+          referenceTable: 'user',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _i2.ForeignKeyAction.noAction,
@@ -299,12 +299,12 @@ class Protocol extends _i1.SerializationManagerServer {
           isPrimary: true,
         ),
         _i2.IndexDefinition(
-          indexName: 'user_device_auth_id_idx',
+          indexName: 'user_device_user_id_idx',
           tableSpace: null,
           elements: [
             _i2.IndexElementDefinition(
               type: _i2.IndexElementDefinitionType.column,
-              definition: 'authUserId',
+              definition: 'userId',
             ),
           ],
           type: 'btree',
@@ -411,9 +411,8 @@ class Protocol extends _i1.SerializationManagerServer {
           )
           as T;
     }
-    if (t == List<_i1.UuidValue>) {
-      return (data as List).map((e) => deserialize<_i1.UuidValue>(e)).toList()
-          as T;
+    if (t == List<int>) {
+      return (data as List).map((e) => deserialize<int>(e)).toList() as T;
     }
     if (t == List<_i11.UserDevice>) {
       return (data as List).map((e) => deserialize<_i11.UserDevice>(e)).toList()

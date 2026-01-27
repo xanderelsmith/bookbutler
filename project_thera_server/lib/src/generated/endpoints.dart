@@ -590,7 +590,7 @@ class Endpoints extends _i1.EndpointDispatch {
           params: {
             'userId': _i1.ParameterDescription(
               name: 'userId',
-              type: _i1.getType<_i1.UuidValue>(),
+              type: _i1.getType<int>(),
               nullable: false,
             ),
             'title': _i1.ParameterDescription(
@@ -658,7 +658,7 @@ class Endpoints extends _i1.EndpointDispatch {
           params: {
             'userIds': _i1.ParameterDescription(
               name: 'userIds',
-              type: _i1.getType<List<_i1.UuidValue>>(),
+              type: _i1.getType<List<int>>(),
               nullable: false,
             ),
             'title': _i1.ParameterDescription(
@@ -766,6 +766,25 @@ class Endpoints extends _i1.EndpointDispatch {
                     params['title'],
                     params['body'],
                     data: params['data'],
+                  ),
+        ),
+        'sendReadingStartedNotification': _i1.MethodConnector(
+          name: 'sendReadingStartedNotification',
+          params: {
+            'bookTitle': _i1.ParameterDescription(
+              name: 'bookTitle',
+              type: _i1.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _i1.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['notification'] as _i8.NotificationEndpoint)
+                  .sendReadingStartedNotification(
+                    session,
+                    params['bookTitle'],
                   ),
         ),
         'cleanupOldDevices': _i1.MethodConnector(

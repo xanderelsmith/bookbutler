@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:serverpod/serverpod.dart';
 
 /// Service for sending Firebase Cloud Messaging notifications
-/// 
+///
 /// This service uses a Firebase service account to send push notifications
 /// to Android and iOS devices via FCM HTTP v1 API.
 class FCMService {
@@ -20,14 +20,14 @@ class FCMService {
   DateTime? _tokenExpiryTime;
 
   /// Get Firebase access token using service account credentials
-  /// 
+  ///
   /// The service account JSON file should be placed in:
   /// project_thera_server/config/firebase-service-account.json
   Future<(String, String)> _getAccessToken() async {
     try {
       // Check if we have a valid cached token
-      if (_cachedAccessToken != null && 
-          _tokenExpiryTime != null && 
+      if (_cachedAccessToken != null &&
+          _tokenExpiryTime != null &&
           DateTime.now().isBefore(_tokenExpiryTime!)) {
         final serviceAccount = await _loadServiceAccount();
         return (_cachedAccessToken!, serviceAccount["project_id"] as String);
@@ -62,24 +62,21 @@ class FCMService {
   }
 
   /// Load service account credentials from file
-  /// 
+  ///
   /// Expected location: config/firebase-service-account.json
   Future<Map<String, dynamic>> _loadServiceAccount() async {
     try {
-      // Try to load from config directory
-      final file = File('config/firebase-service-account.json');
-
-      if (!await file.exists()) {
+      final jsonString = Platform.environment['FIREBASE_SERVICE_ACCOUNT'];
+      if (jsonString == null || jsonString.isEmpty) {
         throw Exception(
-          'Firebase service account file not found at: ${file.path}\n'
-          'Please download the service account JSON from Firebase Console and place it in config/',
+          'FIREBASE_SERVICE_ACCOUNT environment variable not set. '
+          'Create it with `scloud secret create FIREBASE_SERVICE_ACCOUNT --from-file firebase-service-account.json`.',
         );
       }
 
-      final contents = await file.readAsString();
-      final Map<String, dynamic> jsonData = jsonDecode(contents);
+      final Map<String, dynamic> jsonData = jsonDecode(jsonString);
 
-      // Validate required fields
+      // same validation as before...
       final requiredFields = [
         'type',
         'project_id',
@@ -109,12 +106,12 @@ class FCMService {
   }
 
   /// Send a push notification to a specific device token
-  /// 
+  ///
   /// [deviceToken] - The FCM device token
   /// [title] - Notification title
   /// [body] - Notification body
   /// [data] - Optional custom data payload
-  /// 
+  ///
   /// Returns true if successful, false otherwise
   Future<bool> sendNotificationToDevice({
     required String deviceToken,
@@ -200,10 +197,10 @@ class FCMService {
   }
 
   /// Send notification using custom payload
-  /// 
+  ///
   /// This allows for more flexibility in constructing the FCM message.
   /// The payload should follow FCM v1 API format.
-  /// 
+  ///
   /// [payload] - Complete FCM message payload
   Future<bool> sendNotificationWithPayload({
     required Map<String, dynamic> payload,
@@ -259,12 +256,12 @@ class FCMService {
   }
 
   /// Send notification to multiple devices
-  /// 
+  ///
   /// [deviceTokens] - List of FCM device tokens
   /// [title] - Notification title
   /// [body] - Notification body
   /// [data] - Optional custom data payload
-  /// 
+  ///
   /// Returns a map of token -> success status
   Future<Map<String, bool>> sendNotificationToMultipleDevices({
     required List<String> deviceTokens,
@@ -290,7 +287,7 @@ class FCMService {
   }
 
   /// Send notification to a topic
-  /// 
+  ///
   /// [topic] - The FCM topic name
   /// [title] - Notification title
   /// [body] - Notification body

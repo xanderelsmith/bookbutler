@@ -9,6 +9,7 @@ import 'settings_screen.dart';
 import 'add_book_screen.dart';
 
 import '../providers/user_provider.dart';
+import '../providers/book_providers.dart';
 
 class MainNavigationScreen extends ConsumerStatefulWidget {
   const MainNavigationScreen({super.key});
@@ -20,6 +21,7 @@ class MainNavigationScreen extends ConsumerStatefulWidget {
 
 class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   int _currentIndex = 0;
+  late final AppLifecycleListener _listener;
 
   final List<Widget> _screens = const [
     HomeScreen(),
@@ -31,6 +33,20 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   @override
   void initState() {
     super.initState();
+    _listener = AppLifecycleListener(
+      onStateChange: (state) {
+        if (state == AppLifecycleState.paused ||
+            state == AppLifecycleState.hidden) {
+          ref.read(booksProvider.notifier).updateHomeWidget();
+        }
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _listener.dispose();
+    super.dispose();
   }
 
   @override

@@ -6,7 +6,6 @@ import '../services/leaderboard_service.dart';
 /// Endpoint for managing leaderboard entries.
 /// Access this endpoint as `client.leaderboardEntry` from the Flutter client.
 class LeaderboardEntryEndpoint extends Endpoint {
-
   /// Gets the top N leaderboard entries, ordered by points (descending).
   /// [limit] defaults to 10 if not provided.
   Future<List<LeaderboardEntry>> getTopEntries(
@@ -73,7 +72,17 @@ class LeaderboardEntryEndpoint extends Endpoint {
   }) async {
     final authInfo = session.authenticated;
     if (authInfo == null) {
-      throw Exception('User must be authenticated');
+      session.log(
+        'UpsertEntry: User is NOT authenticated. They are appearing as "Guest". Push notifications will be skipped.',
+        level: LogLevel.warning,
+      );
+      return LeaderboardEntry(
+        userId: 0,
+        points: 0,
+        name: 'Guest',
+        books: 0,
+        pages: 0,
+      );
     }
 
     return await LeaderboardService.instance.upsertEntry(
