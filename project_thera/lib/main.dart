@@ -15,34 +15,42 @@ late Client client;
 var newVariable = '10.223.5.151';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // Initialize Serverpod and restore session
-  final serverpodService = ServerpodService();
-  await serverpodService.initialize();
-  client = serverpodService.client;
+  try {
+    // Initialize Firebase
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
 
-  // Restore user session from cache/server
-  await serverpodService.restoreSession();
+    // Initialize Serverpod and restore session
+    final serverpodService = ServerpodService();
+    await serverpodService.initialize();
+    client = serverpodService.client;
 
-  // Note: client.auth.initialize() is not needed - the session manager handles this automatically
-  // Initialize pdfrx library
-  pdfrxFlutterInitialize(dismissPdfiumWasmWarnings: true);
+    // Restore user session from cache/server
+    await serverpodService.restoreSession();
 
-  // Initialize notification service (local notifications)
-  final notificationService = NotificationService();
-  notificationService.initialize();
+    // Initialize pdfrx library
+    pdfrxFlutterInitialize(dismissPdfiumWasmWarnings: true);
 
-  // Initialize push notification service (FCM)
-  final pushNotificationService = PushNotificationService();
-  await pushNotificationService.initialize();
+    // Initialize notification service (local notifications)
+    final notificationService = NotificationService();
+    notificationService.initialize();
 
-  // Initialize home widget service
-  final homeWidgetService = HomeWidgetService();
-  homeWidgetService.initialize();
+    // Initialize push notification service (FCM)
+    final pushNotificationService = PushNotificationService();
+    pushNotificationService.initialize();
 
-  // Send first launch notification if this is the first time opening the app
-  notificationService.sendFirstLaunchNotification();
+    // Initialize home widget service
+    final homeWidgetService = HomeWidgetService();
+    homeWidgetService.initialize();
+
+    // Send first launch notification if this is the first time opening the app
+    notificationService.sendFirstLaunchNotification();
+  } catch (e) {
+    Exception('Error during initialization: $e');
+    // We still call runApp to avoid a white screen, even if some services failed
+  }
 
   runApp(const ProviderScope(child: FlutterButlerApp()));
 }
