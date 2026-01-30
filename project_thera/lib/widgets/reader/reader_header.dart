@@ -76,14 +76,14 @@ class ReaderHeader extends StatelessWidget {
                         icon: const Icon(Icons.settings_outlined),
                         onPressed: onSettings,
                       ),
-                      IconButton(
-                        icon: Icon(
-                          isFullscreen
-                              ? Icons.fullscreen_exit
-                              : Icons.fullscreen,
-                        ),
-                        onPressed: onToggleFullscreen,
-                      ),
+                      // IconButton(
+                      //   icon: Icon(
+                      //     isFullscreen
+                      //         ? Icons.fullscreen_exit
+                      //         : Icons.fullscreen,
+                      //   ),
+                      //   onPressed: onToggleFullscreen,
+                      // ),
                     ],
                   ),
                 ],

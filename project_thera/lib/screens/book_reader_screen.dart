@@ -70,7 +70,7 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
   bool get _isDocx =>
       widget.book.pdfUrl?.toLowerCase().endsWith('.docx') ?? false;
   bool get _isTextBased => !_isPdf && !_isDocx; // Text only
-  late ValueKey valueKey;
+
   @override
   void initState() {
     // Initialize pdfrx controller
@@ -78,7 +78,6 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
       ..addListener(() {
         _currentPageNumber = _pdfController.pageNumber ?? 0;
       });
-    valueKey = ValueKey(widget.book.id);
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -710,7 +709,7 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
                             if (_isPdf) {
                               return PdfViewer.file(
                                 widget.book.pdfUrl ?? '',
-                                key: valueKey,
+
                                 controller: _pdfController,
                                 params: PdfViewerParams(
                                   backgroundColor: Theme.of(
