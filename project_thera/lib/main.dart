@@ -30,7 +30,7 @@ void main() async {
     // Restore user session from cache/server
     await serverpodService.restoreSession();
 
-    // Initialize pdfrx library
+    // Initialize pdfrx librar
     pdfrxFlutterInitialize(dismissPdfiumWasmWarnings: true);
 
     // Initialize notification service (local notifications)
