@@ -35,7 +35,7 @@ migrate_working_dir/
 .pub/
 build/
 coverage/
-
+project_thera_server/
 # Symbolication related
 app.*.symbols
 
