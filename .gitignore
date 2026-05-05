@@ -35,7 +35,12 @@ migrate_working_dir/
 .pub/
 build/
 coverage/
-project_thera_server/
+
+# Serverpod
+project_thera_server/config/passwords.yaml
+**/lib/src/generated/
+**/lib/generated/
+
 # Symbolication related
 app.*.symbols
 

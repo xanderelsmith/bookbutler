@@ -63,10 +63,11 @@ The backend architecture is built on Serverpod, exposing several logical endpoin
 ### Setting Up the Backend
 1.  Navigate to the server directory: `cd project_thera_server`
 2.  Start the database: `docker-compose up -d`
-3.  Configure secrets:
-    -   Create `config/passwords.yaml` (if it doesn't exist).
-    -   Add your `aiApiKey` for Gemini integration.
-4.  Run the server: `dart bin/main.dart`
+3.  **Generate code:** Run `serverpod generate` to generate the communication protocols and database models.
+4.  Configure secrets:
+    -   Create `config/passwords.yaml` (this file is excluded from version control for security).
+    -   Add your `aiApiKey` for Gemini integration and database credentials.
+5.  Run the server: `dart bin/main.dart`
 
 ### Running the Flutter App
 I added the build files here 
