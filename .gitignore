@@ -38,6 +38,7 @@ coverage/
 
 # Serverpod
 project_thera_server/config/passwords.yaml
+**/config/firebase-service-account.json
 **/lib/src/generated/
 **/lib/generated/
 
